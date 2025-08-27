@@ -196,7 +196,14 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         $: { order: { order: 'asc' } }
       }
     },
+    $files: {}
   });
+
+  // Helper function to get file URL from file ID
+  const getFileUrl = (fileId: string) => {
+    const file = data?.$files?.find((f: any) => f.id === fileId);
+    return file?.url;
+  };
 
   const addIngredient = () => {
     setIngredients([...ingredients, { name: '', amount: '', unit: '' }]);
@@ -224,10 +231,23 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
     if (selectedImage) {
       try {
         const imagePath = `recipes/${recipeId}/${selectedImage.name}`;
-        const { url } = await db.storage.uploadFile(imagePath, selectedImage, {
+        console.log('Uploading file:', selectedImage.name, 'to path:', imagePath);
+        const response = await db.storage.uploadFile(imagePath, selectedImage, {
           contentType: selectedImage.type,
         });
-        photoUrl = url;
+        console.log('Full upload response:', response);
+        console.log('Response data:', response.data);
+        
+        // Try to get URL from storage API directly
+        if (response.data && response.data.id) {
+          // Store the file ID temporarily and we'll query it with useQuery
+          photoUrl = response.data.id;
+          console.log('Using file ID as temporary photoUrl:', photoUrl);
+        } else {
+          console.error('No file ID in upload response');
+          alert('Upload failed - no file ID returned.');
+          return;
+        }
       } catch (error) {
         console.error('Failed to upload image:', error);
         alert('Failed to upload image. Please try again.');
@@ -237,28 +257,33 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
     const transactions = [];
     
+    console.log('Final photoUrl before saving to database:', photoUrl);
+    
     if (editingRecipe) {
       // For editing, just update the recipe without changing links
+      const updateData = {
+        name: newRecipe.name,
+        description: newRecipe.description,
+        photoUrl: photoUrl,
+        updatedAt: now,
+      };
+      console.log('Updating existing recipe with data:', updateData);
       transactions.push(
-        db.tx.recipes[recipeId]
-          .update({
-            name: newRecipe.name,
-            description: newRecipe.description,
-            photoUrl: photoUrl,
-            updatedAt: now,
-          })
+        db.tx.recipes[recipeId].update(updateData)
       );
     } else {
       // For creating, update and link to owner
+      const createData = {
+        name: newRecipe.name,
+        description: newRecipe.description,
+        photoUrl: photoUrl,
+        createdAt: now,
+        updatedAt: now,
+      };
+      console.log('Creating new recipe with data:', createData);
       transactions.push(
         db.tx.recipes[recipeId]
-          .update({
-            name: newRecipe.name,
-            description: newRecipe.description,
-            photoUrl: photoUrl,
-            createdAt: now,
-            updatedAt: now,
-          })
+          .update(createData)
           .link({ owner: user.id })
       );
     }
@@ -291,7 +316,9 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         )
     );
 
-    db.transact(transactions);
+    console.log('Executing transactions:', transactions);
+    await db.transact(transactions);
+    console.log('Transaction completed successfully');
 
     setNewRecipe({ name: '', description: '', photoUrl: '' });
     setSelectedImage(null);
@@ -373,11 +400,11 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                     Selected: {selectedImage.name}
                   </div>
                 )}
-                {!selectedImage && editingRecipe && newRecipe.photoUrl && (
+                {!selectedImage && editingRecipe && newRecipe.photoUrl && getFileUrl(newRecipe.photoUrl) && (
                   <div className="mt-2">
                     <p className="text-sm text-night-800 mb-2">Current image:</p>
                     <img 
-                      src={newRecipe.photoUrl} 
+                      src={getFileUrl(newRecipe.photoUrl)} 
                       alt="Current recipe" 
                       className="w-32 h-24 object-cover rounded border border-night-600"
                     />
@@ -485,10 +512,10 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         {data?.recipes?.map((recipe: RecipeWithIngredients) => (
           <div key={recipe.id} className="bg-night-400 border border-night-600 rounded-lg overflow-hidden cursor-pointer hover:bg-night-500 hover:border-saffron transition-colors"
                onClick={() => onSelectRecipe(recipe.id)}>
-            {recipe.photoUrl && (
+            {recipe.photoUrl && getFileUrl(recipe.photoUrl) && (
               <div className="w-full h-48 overflow-hidden">
                 <img 
-                  src={recipe.photoUrl} 
+                  src={getFileUrl(recipe.photoUrl)} 
                   alt={recipe.name}
                   className="w-full h-full object-cover"
                 />
@@ -637,7 +664,14 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
         $: { order: { order: 'asc' } }
       }
     },
+    $files: {}
   });
+
+  // Helper function to get file URL from file ID
+  const getFileUrl = (fileId: string) => {
+    const file = recipesData?.$files?.find((f: any) => f.id === fileId);
+    return file?.url;
+  };
 
   const currentRecipe = recipesData?.recipes?.find(r => r.id === selectedRecipeId);
 
@@ -684,10 +718,10 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
       ) : (
         <div className="space-y-6">
           <div className="bg-night-400 border border-saffron rounded-lg overflow-hidden">
-            {currentRecipe?.photoUrl && (
+            {currentRecipe?.photoUrl && getFileUrl(currentRecipe.photoUrl) && (
               <div className="w-full h-64 overflow-hidden">
                 <img 
-                  src={currentRecipe.photoUrl} 
+                  src={getFileUrl(currentRecipe.photoUrl)} 
                   alt={currentRecipe.name}
                   className="w-full h-full object-cover"
                 />
