@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0c090d;
+  --foreground: #f9c22e;
 }
 
 @theme inline {
@@ -10,13 +10,62 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  
+  /* Custom Color Palette */
+  --color-night: #0c090d;
+  --color-night-100: #020202;
+  --color-night-200: #040305;
+  --color-night-300: #070507;
+  --color-night-400: #09070a;
+  --color-night-500: #0c090d;
+  --color-night-600: #403146;
+  --color-night-700: #765980;
+  --color-night-800: #a68baf;
+  --color-night-900: #d2c5d7;
+  
+  --color-amaranth: #e01a4f;
+  --color-amaranth-100: #2d0510;
+  --color-amaranth-200: #590a20;
+  --color-amaranth-300: #86102f;
+  --color-amaranth-400: #b3153f;
+  --color-amaranth-500: #e01a4f;
+  --color-amaranth-600: #e94571;
+  --color-amaranth-700: #ef7394;
+  --color-amaranth-800: #f4a2b8;
+  --color-amaranth-900: #fad0db;
+  
+  --color-tomato: #f15946;
+  --color-tomato-100: #3a0b04;
+  --color-tomato-200: #741509;
+  --color-tomato-300: #ae200d;
+  --color-tomato-400: #e72a11;
+  --color-tomato-500: #f15946;
+  --color-tomato-600: #f47b6b;
+  --color-tomato-700: #f79c90;
+  --color-tomato-800: #f9bdb5;
+  --color-tomato-900: #fcdeda;
+  
+  --color-saffron: #f9c22e;
+  --color-saffron-100: #392b02;
+  --color-saffron-200: #735504;
+  --color-saffron-300: #ac8005;
+  --color-saffron-400: #e6aa07;
+  --color-saffron-500: #f9c22e;
+  --color-saffron-600: #facf59;
+  --color-saffron-700: #fbdb82;
+  --color-saffron-800: #fce7ac;
+  --color-saffron-900: #fef3d5;
+  
+  --color-moonstone: #53b3cb;
+  --color-moonstone-100: #0d262c;
+  --color-moonstone-200: #1a4c58;
+  --color-moonstone-300: #277184;
+  --color-moonstone-400: #3597b0;
+  --color-moonstone-500: #53b3cb;
+  --color-moonstone-600: #75c2d6;
+  --color-moonstone-700: #97d1e0;
+  --color-moonstone-800: #bae1ea;
+  --color-moonstone-900: #dcf0f5;
 }
 
 body {

@@ -41,7 +41,7 @@ function Login() {
   const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-900">
+    <div className="flex justify-center items-center min-h-screen bg-night">
       <div className="max-w-md w-full mx-4">
         {!sentEmail ? (
           <EmailStep onSendEmail={setSentEmail} />
@@ -70,26 +70,26 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-white mb-2">🍸 Bar Buddy</h1>
-        <p className="text-gray-400 mb-8">Your personal cocktail companion</p>
+        <h1 className="text-4xl font-bold text-saffron mb-2">🍸 Bar Buddy</h1>
+        <p className="text-night-800 mb-8">Your personal cocktail companion</p>
       </div>
       
-      <div className="bg-gray-800 p-8 rounded-lg border border-gray-700">
-        <h2 className="text-xl font-bold text-white mb-4">Sign In</h2>
-        <p className="text-gray-300 mb-6">
+      <div className="bg-night-400 p-8 rounded-lg border border-saffron">
+        <h2 className="text-xl font-bold text-saffron mb-4">Sign In</h2>
+        <p className="text-night-900 mb-6">
           Enter your email to get started with Bar Buddy - create, manage, and share your cocktail recipes.
         </p>
         <input
           ref={inputRef}
           type="email"
-          className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full px-4 py-3 bg-night-300 border border-night-600 rounded-lg text-saffron placeholder-night-700 focus:outline-none focus:border-moonstone focus:ring-1 focus:ring-moonstone"
           placeholder="Enter your email"
           required
           autoFocus
         />
         <button
           type="submit"
-          className="w-full mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          className="w-full mt-4 px-6 py-3 bg-moonstone text-night font-semibold rounded-lg hover:bg-moonstone-600 transition-colors"
         >
           Send Magic Code
         </button>
@@ -114,26 +114,26 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-white mb-2">🍸 Bar Buddy</h1>
+        <h1 className="text-4xl font-bold text-saffron mb-2">🍸 Bar Buddy</h1>
       </div>
       
-      <div className="bg-gray-800 p-8 rounded-lg border border-gray-700">
-        <h2 className="text-xl font-bold text-white mb-4">Enter your code</h2>
-        <p className="text-gray-300 mb-6">
-          We sent a verification code to <strong className="text-white">{sentEmail}</strong>. 
+      <div className="bg-night-400 p-8 rounded-lg border border-saffron">
+        <h2 className="text-xl font-bold text-saffron mb-4">Enter your code</h2>
+        <p className="text-night-900 mb-6">
+          We sent a verification code to <strong className="text-saffron">{sentEmail}</strong>. 
           Check your email and enter the code below.
         </p>
         <input
           ref={inputRef}
           type="text"
-          className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full px-4 py-3 bg-night-300 border border-night-600 rounded-lg text-saffron placeholder-night-700 focus:outline-none focus:border-moonstone focus:ring-1 focus:ring-moonstone"
           placeholder="Enter verification code"
           required
           autoFocus
         />
         <button
           type="submit"
-          className="w-full mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          className="w-full mt-4 px-6 py-3 bg-moonstone text-night font-semibold rounded-lg hover:bg-moonstone-600 transition-colors"
         >
           Verify Code
         </button>
@@ -147,26 +147,26 @@ function Navigation({ currentView, setCurrentView }: {
   setCurrentView: (view: string) => void; 
 }) {
   return (
-    <nav className="bg-gray-800 border-b border-gray-700">
+    <nav className="bg-night-400 border-b border-saffron">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-white cursor-pointer" onClick={() => setCurrentView('recipes')}>🍸 Bar Buddy</h1>
+            <h1 className="text-2xl font-bold text-saffron cursor-pointer" onClick={() => setCurrentView('recipes')}>🍸 Bar Buddy</h1>
           </div>
           <div className="flex space-x-4">
             <button
               onClick={() => setCurrentView('menus')}
               className={`px-3 py-2 rounded-md text-sm font-medium ${
                 currentView === 'menus'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  ? 'bg-moonstone text-night'
+                  : 'text-night-800 hover:bg-night-600 hover:text-saffron'
               }`}
             >
               Menus
             </button>
             <button
               onClick={() => db.auth.signOut()}
-              className="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+              className="px-3 py-2 rounded-md text-sm font-medium text-night-800 hover:bg-night-600 hover:text-saffron"
             >
               Sign Out
             </button>
@@ -182,7 +182,8 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   const [showForm, setShowForm] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<string | null>(null);
   const [deletingRecipe, setDeletingRecipe] = useState<{ id: string; name: string } | null>(null);
-  const [newRecipe, setNewRecipe] = useState({ name: '', description: '' });
+  const [newRecipe, setNewRecipe] = useState({ name: '', description: '', photoUrl: '' });
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [ingredients, setIngredients] = useState([{ name: '', amount: '', unit: '' }]);
 
   const { data, isLoading } = db.useQuery({
@@ -212,11 +213,27 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
     setIngredients(updated);
   };
 
-  const saveRecipe = () => {
+  const saveRecipe = async () => {
     if (!newRecipe.name.trim()) return;
 
     const recipeId = editingRecipe || id();
     const now = Date.now();
+    let photoUrl = newRecipe.photoUrl;
+
+    // Upload image if a new file was selected
+    if (selectedImage) {
+      try {
+        const imagePath = `recipes/${recipeId}/${selectedImage.name}`;
+        const { url } = await db.storage.uploadFile(imagePath, selectedImage, {
+          contentType: selectedImage.type,
+        });
+        photoUrl = url;
+      } catch (error) {
+        console.error('Failed to upload image:', error);
+        alert('Failed to upload image. Please try again.');
+        return;
+      }
+    }
 
     const transactions = [];
     
@@ -227,6 +244,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
           .update({
             name: newRecipe.name,
             description: newRecipe.description,
+            photoUrl: photoUrl,
             updatedAt: now,
           })
       );
@@ -237,6 +255,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
           .update({
             name: newRecipe.name,
             description: newRecipe.description,
+            photoUrl: photoUrl,
             createdAt: now,
             updatedAt: now,
           })
@@ -274,7 +293,8 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
     db.transact(transactions);
 
-    setNewRecipe({ name: '', description: '' });
+    setNewRecipe({ name: '', description: '', photoUrl: '' });
+    setSelectedImage(null);
     setIngredients([{ name: '', amount: '', unit: '' }]);
     setEditingRecipe(null);
     setShowForm(false);
@@ -291,7 +311,8 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
   const startEditRecipe = (recipe: RecipeWithIngredients) => {
     setEditingRecipe(recipe.id);
-    setNewRecipe({ name: recipe.name, description: recipe.description || '' });
+    setNewRecipe({ name: recipe.name, description: recipe.description || '', photoUrl: recipe.photoUrl || '' });
+    setSelectedImage(null); // Reset file selection when editing
     setIngredients(
       recipe.ingredients?.map((ing: any) => ({
         name: ing.name,
@@ -303,16 +324,16 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center text-gray-400">Loading recipes...</div>;
+    return <div className="p-8 text-center text-night-800">Loading recipes...</div>;
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold text-white">My Recipes</h2>
+        <h2 className="text-3xl font-bold text-saffron">My Recipes</h2>
         <button
           onClick={() => setShowForm(true)}
-          className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-6 py-2 bg-moonstone text-night font-semibold rounded-lg hover:bg-moonstone-600 transition-colors"
         >
           Add Recipe
         </button>
@@ -320,8 +341,8 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-4">{editingRecipe ? 'Edit Recipe' : 'New Recipe'}</h3>
+          <div className="bg-night-400 p-8 rounded-lg border border-saffron w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-saffron mb-4">{editingRecipe ? 'Edit Recipe' : 'New Recipe'}</h3>
             
             <div className="space-y-4">
               <input
@@ -329,16 +350,43 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 placeholder="Recipe name"
                 value={newRecipe.name}
                 onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                className="w-full px-4 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700"
               />
               <textarea
                 placeholder="Description (optional)"
                 value={newRecipe.description}
                 onChange={(e) => setNewRecipe({ ...newRecipe, description: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 h-24"
+                className="w-full px-4 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700 h-24"
               />
+              <div>
+                <label className="block text-sm font-medium text-saffron mb-2">
+                  Recipe Image (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
+                  className="w-full px-4 py-2 bg-night-300 border border-night-600 rounded text-saffron file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-moonstone file:text-night hover:file:bg-moonstone-600"
+                />
+                {selectedImage && (
+                  <div className="mt-2 text-sm text-night-800">
+                    Selected: {selectedImage.name}
+                  </div>
+                )}
+                {!selectedImage && editingRecipe && newRecipe.photoUrl && (
+                  <div className="mt-2">
+                    <p className="text-sm text-night-800 mb-2">Current image:</p>
+                    <img 
+                      src={newRecipe.photoUrl} 
+                      alt="Current recipe" 
+                      className="w-32 h-24 object-cover rounded border border-night-600"
+                    />
+                    <p className="text-xs text-night-700 mt-1">Select a new file to replace this image</p>
+                  </div>
+                )}
+              </div>
 
-              <h4 className="text-lg font-semibold text-white mt-6 mb-2">Ingredients</h4>
+              <h4 className="text-lg font-semibold text-saffron mt-6 mb-2">Ingredients</h4>
               {ingredients.map((ingredient, index) => (
                 <div key={index} className="flex gap-2">
                   <input
@@ -346,25 +394,25 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                     placeholder="Ingredient name"
                     value={ingredient.name}
                     onChange={(e) => updateIngredient(index, 'name', e.target.value)}
-                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                    className="flex-1 px-3 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700"
                   />
                   <input
                     type="text"
                     placeholder="Amount"
                     value={ingredient.amount}
                     onChange={(e) => updateIngredient(index, 'amount', e.target.value)}
-                    className="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                    className="w-24 px-3 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700"
                   />
                   <input
                     type="text"
                     placeholder="Unit"
                     value={ingredient.unit}
                     onChange={(e) => updateIngredient(index, 'unit', e.target.value)}
-                    className="w-20 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                    className="w-20 px-3 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700"
                   />
                   <button
                     onClick={() => removeIngredient(index)}
-                    className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    className="px-3 py-2 bg-amaranth text-night rounded hover:bg-amaranth-600"
                   >
                     ×
                   </button>
@@ -373,7 +421,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
               
               <button
                 onClick={addIngredient}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                className="px-4 py-2 bg-night-600 text-saffron rounded hover:bg-night-700"
               >
                 Add Ingredient
               </button>
@@ -382,7 +430,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
             <div className="flex gap-4 mt-6">
               <button
                 onClick={saveRecipe}
-                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-6 py-2 bg-moonstone text-night rounded hover:bg-moonstone-600"
               >
                 Save
               </button>
@@ -390,10 +438,11 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 onClick={() => {
                   setShowForm(false);
                   setEditingRecipe(null);
-                  setNewRecipe({ name: '', description: '' });
+                  setNewRecipe({ name: '', description: '', photoUrl: '' });
+                  setSelectedImage(null);
                   setIngredients([{ name: '', amount: '', unit: '' }]);
                 }}
-                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                className="px-6 py-2 bg-night-600 text-saffron rounded hover:bg-night-700"
               >
                 Cancel
               </button>
@@ -404,25 +453,25 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
       {deletingRecipe && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-md">
+          <div className="bg-night-400 p-8 rounded-lg border border-saffron w-full max-w-md">
             <div className="text-center">
               <div className="text-4xl mb-4">⚠️</div>
-              <h3 className="text-xl font-bold text-white mb-4">Delete Recipe</h3>
-              <p className="text-gray-300 mb-6">
-                Are you sure you want to delete <strong className="text-white">"{deletingRecipe.name}"</strong>? 
+              <h3 className="text-xl font-bold text-saffron mb-4">Delete Recipe</h3>
+              <p className="text-night-900 mb-6">
+                Are you sure you want to delete <strong className="text-saffron">"{deletingRecipe.name}"</strong>? 
                 This action cannot be undone.
               </p>
               
               <div className="flex gap-4 justify-center">
                 <button
                   onClick={() => deleteRecipe(deletingRecipe.id)}
-                  className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors"
+                  className="px-6 py-2 bg-amaranth text-night font-semibold rounded-lg hover:bg-amaranth-600 transition-colors"
                 >
                   Delete Recipe
                 </button>
                 <button
                   onClick={() => setDeletingRecipe(null)}
-                  className="px-6 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                  className="px-6 py-2 bg-night-600 text-saffron font-semibold rounded-lg hover:bg-night-700 transition-colors"
                 >
                   Cancel
                 </button>
@@ -434,43 +483,54 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {data?.recipes?.map((recipe: RecipeWithIngredients) => (
-          <div key={recipe.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6 cursor-pointer hover:bg-gray-750 hover:border-blue-500 transition-colors"
+          <div key={recipe.id} className="bg-night-400 border border-night-600 rounded-lg overflow-hidden cursor-pointer hover:bg-night-500 hover:border-saffron transition-colors"
                onClick={() => onSelectRecipe(recipe.id)}>
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-semibold text-white">{recipe.name}</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startEditRecipe(recipe);
-                  }}
-                  className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    confirmDeleteRecipe(recipe);
-                  }}
-                  className="text-red-400 hover:text-red-300"
-                >
-                  ×
-                </button>
+            {recipe.photoUrl && (
+              <div className="w-full h-48 overflow-hidden">
+                <img 
+                  src={recipe.photoUrl} 
+                  alt={recipe.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-            </div>
-            
-            {recipe.description && (
-              <p className="text-gray-400 mb-4">{recipe.description}</p>
             )}
-            
-            <div className="space-y-2">
-              <h4 className="font-medium text-gray-300">Ingredients:</h4>
-              {recipe.ingredients?.map((ingredient: any) => (
-                <div key={ingredient.id} className="text-gray-300 text-sm">
-                  {formatDisplayFraction(ingredient.amount)} {ingredient.unit} {ingredient.name}
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-semibold text-saffron">{recipe.name}</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditRecipe(recipe);
+                    }}
+                    className="text-moonstone hover:text-moonstone-600 text-sm px-2 py-1"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      confirmDeleteRecipe(recipe);
+                    }}
+                    className="text-amaranth hover:text-amaranth-600"
+                  >
+                    ×
+                  </button>
                 </div>
-              ))}
+              </div>
+              
+              {recipe.description && (
+                <p className="text-night-800 mb-4">{recipe.description}</p>
+              )}
+              
+              <div className="space-y-2">
+                <h4 className="font-medium text-night-900">Ingredients:</h4>
+                {recipe.ingredients?.map((ingredient: any) => (
+                  <div key={ingredient.id} className="text-night-900 text-sm">
+                    {formatDisplayFraction(ingredient.amount)} {ingredient.unit} {ingredient.name}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ))}
@@ -599,71 +659,81 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
     completedIngredients.size === currentRecipe?.ingredients?.length;
 
   if (recipesLoading) {
-    return <div className="p-8 text-center text-gray-400">Loading recipes...</div>;
+    return <div className="p-8 text-center text-night-800">Loading recipes...</div>;
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold text-white">Make a Drink</h2>
+        <h2 className="text-3xl font-bold text-saffron">Make a Drink</h2>
         <button
           onClick={() => {
             onBackToRecipes();
             resetProgress();
           }}
-          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+          className="px-4 py-2 bg-night-600 text-saffron rounded-lg hover:bg-night-700"
         >
           Back to Recipes
         </button>
       </div>
 
       {!selectedRecipeId || !currentRecipe ? (
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
-          <p className="text-gray-400 text-lg">No recipe selected. Go back and select a recipe to make.</p>
+        <div className="bg-night-400 border border-saffron rounded-lg p-8 text-center">
+          <p className="text-night-800 text-lg">No recipe selected. Go back and select a recipe to make.</p>
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-2">{currentRecipe?.name}</h3>
-                {currentRecipe?.description && (
-                  <p className="text-gray-400">{currentRecipe.description}</p>
-                )}
+          <div className="bg-night-400 border border-saffron rounded-lg overflow-hidden">
+            {currentRecipe?.photoUrl && (
+              <div className="w-full h-64 overflow-hidden">
+                <img 
+                  src={currentRecipe.photoUrl} 
+                  alt={currentRecipe.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
+            )}
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-saffron mb-2">{currentRecipe?.name}</h3>
+                  {currentRecipe?.description && (
+                    <p className="text-night-800">{currentRecipe.description}</p>
+                  )}
+                </div>
               
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-300">Servings:</span>
+                <div className="flex items-center space-x-4">
+                  <span className="text-night-900">Servings:</span>
+                  <button
+                    onClick={() => setMultiplier(Math.max(1, multiplier - 1))}
+                    className="px-3 py-1 bg-night-600 text-saffron rounded hover:bg-night-700"
+                  >
+                    -
+                  </button>
+                  <span className="text-saffron font-semibold min-w-[2ch] text-center">{multiplier}</span>
+                  <button
+                    onClick={() => setMultiplier(multiplier + 1)}
+                    className="px-3 py-1 bg-night-600 text-saffron rounded hover:bg-night-700"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-lg font-semibold text-night-900">
+                  Ingredients ({completedIngredients.size}/{currentRecipe?.ingredients?.length || 0})
+                </h4>
                 <button
-                  onClick={() => setMultiplier(Math.max(1, multiplier - 1))}
-                  className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                  onClick={resetProgress}
+                  className="px-4 py-2 bg-night-600 text-saffron rounded hover:bg-night-700 text-sm"
                 >
-                  -
-                </button>
-                <span className="text-white font-semibold min-w-[2ch] text-center">{multiplier}</span>
-                <button
-                  onClick={() => setMultiplier(multiplier + 1)}
-                  className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-                >
-                  +
+                  Reset Progress
                 </button>
               </div>
-            </div>
 
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-lg font-semibold text-gray-300">
-                Ingredients ({completedIngredients.size}/{currentRecipe?.ingredients?.length || 0})
-              </h4>
-              <button
-                onClick={resetProgress}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
-              >
-                Reset Progress
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {currentRecipe?.ingredients?.map((ingredient: any) => {
+              <div className="space-y-3">
+                {currentRecipe?.ingredients?.map((ingredient: any) => {
                 const isCompleted = completedIngredients.has(ingredient.id);
                 
                 const scaledAmount = (() => {
@@ -779,8 +849,8 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
                     key={ingredient.id}
                     className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer ${
                       isCompleted
-                        ? 'bg-green-900 border-green-600 opacity-75'
-                        : 'bg-gray-700 border-gray-600 hover:border-blue-500'
+                        ? 'bg-night-500 border-night-700 opacity-75'
+                        : 'bg-tomato-800 border-tomato-600 hover:border-tomato'
                     }`}
                     onClick={() => toggleIngredient(ingredient.id)}
                   >
@@ -788,14 +858,14 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
                       <div
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                           isCompleted
-                            ? 'bg-green-600 border-green-600 text-white'
-                            : 'border-gray-400'
+                            ? 'bg-night-700 border-night-800 text-night-900'
+                            : 'border-tomato-500 text-tomato'
                         }`}
                       >
                         {isCompleted && '✓'}
                       </div>
                       <div>
-                        <span className={`text-lg ${isCompleted ? 'line-through text-gray-400' : 'text-white'}`}>
+                        <span className={`text-lg ${isCompleted ? 'line-through text-night-800' : 'text-night'}`}>
                           {formatDisplayFraction(scaledAmount)} {ingredient.unit} {ingredient.name}
                         </span>
                       </div>
@@ -807,29 +877,30 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
                       }}
                       className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
                         isCompleted
-                          ? 'bg-gray-600 text-gray-300 hover:bg-gray-700'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          ? 'bg-night-700 text-night-900 hover:bg-night-800'
+                          : 'bg-tomato text-night hover:bg-tomato-600'
                       }`}
                     >
                       {isCompleted ? 'Undo' : 'Done'}
                     </button>
                   </div>
                 );
-              })}
-            </div>
-
-            {isCompleted && (
-              <div className="mt-6 p-6 bg-green-900 border border-green-600 rounded-lg text-center">
-                <h4 className="text-xl font-bold text-green-300 mb-2">🎉 Drink Complete!</h4>
-                <p className="text-green-400">Enjoy your {currentRecipe?.name}!</p>
-                <button
-                  onClick={resetProgress}
-                  className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Make Another
-                </button>
+                })}
               </div>
-            )}
+
+              {isCompleted && (
+                <div className="mt-6 p-6 bg-night-600 border border-saffron rounded-lg text-center">
+                  <h4 className="text-xl font-bold text-saffron mb-2">🎉 Drink Complete!</h4>
+                  <p className="text-night-900">Enjoy your {currentRecipe?.name}!</p>
+                  <button
+                    onClick={resetProgress}
+                    className="mt-4 px-6 py-2 bg-saffron text-night rounded-lg hover:bg-saffron-600"
+                  >
+                    Make Another
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -950,7 +1021,7 @@ function MenusView() {
           <h2 className="text-3xl font-bold text-white">Menu: {menu?.name}</h2>
           <button
             onClick={() => setShowMenuView(null)}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            className="px-4 py-2 bg-night-600 text-saffron rounded-lg hover:bg-night-700"
           >
             Back to Menus
           </button>
@@ -1031,13 +1102,13 @@ function MenusView() {
                 placeholder="Menu name"
                 value={newMenu.name}
                 onChange={(e) => setNewMenu({ ...newMenu, name: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                className="w-full px-4 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700"
               />
               <textarea
                 placeholder="Description (optional)"
                 value={newMenu.description}
                 onChange={(e) => setNewMenu({ ...newMenu, description: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 h-24"
+                className="w-full px-4 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700 h-24"
               />
             </div>
 
@@ -1158,7 +1229,7 @@ function Main() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-night">
       <Navigation currentView={currentView} setCurrentView={setCurrentView} />
       
       {currentView === 'recipes' && <RecipesView onSelectRecipe={handleSelectRecipe} />}

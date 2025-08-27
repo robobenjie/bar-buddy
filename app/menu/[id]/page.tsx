@@ -110,10 +110,10 @@ export default function PublicMenuPage({ params }: { params: { id: string } }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-night flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">🍸</div>
-          <p className="text-gray-400 text-lg">Loading menu...</p>
+          <p className="text-night-800 text-lg">Loading menu...</p>
         </div>
       </div>
     );
@@ -121,11 +121,11 @@ export default function PublicMenuPage({ params }: { params: { id: string } }) {
 
   if (error || !menu) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-night flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">😞</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Menu Not Found</h1>
-          <p className="text-gray-400">This menu doesn't exist or is no longer available.</p>
+          <h1 className="text-2xl font-bold text-saffron mb-2">Menu Not Found</h1>
+          <p className="text-night-800">This menu doesn't exist or is no longer available.</p>
         </div>
       </div>
     );
@@ -133,46 +133,57 @@ export default function PublicMenuPage({ params }: { params: { id: string } }) {
 
   if (!menu.isActive) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-night flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">🚫</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Menu Unavailable</h1>
-          <p className="text-gray-400">This menu is currently inactive.</p>
+          <h1 className="text-2xl font-bold text-saffron mb-2">Menu Unavailable</h1>
+          <p className="text-night-800">This menu is currently inactive.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-night">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🍸</div>
-          <h1 className="text-4xl font-bold text-white mb-2">{menu.name}</h1>
+          <h1 className="text-4xl font-bold text-saffron mb-2">{menu.name}</h1>
           {menu.description && (
-            <p className="text-gray-400 text-lg">{menu.description}</p>
+            <p className="text-night-800 text-lg">{menu.description}</p>
           )}
         </div>
 
         <div className="space-y-6">
           {menu.items?.map((item: any) => (
-            <div key={item.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-2xl font-semibold text-white mb-3">{item.recipe.name}</h3>
-              {item.recipe.description && (
-                <p className="text-gray-300 mb-4">{item.recipe.description}</p>
+            <div key={item.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+              {item.recipe.photoUrl && (
+                <div className="w-full h-64 overflow-hidden">
+                  <img 
+                    src={item.recipe.photoUrl} 
+                    alt={item.recipe.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               )}
-              
-              <div className="border-t border-gray-700 pt-4">
-                <h4 className="font-semibold text-gray-300 mb-3">Ingredients:</h4>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {item.recipe.ingredients?.map((ingredient: any) => (
-                    <div key={ingredient.id} className="flex justify-between items-center p-2 bg-gray-700 rounded">
-                      <span className="text-gray-300">{ingredient.name}</span>
-                      <span className="text-gray-400 text-sm">
-                        {formatDisplayFraction(ingredient.amount)} {ingredient.unit}
-                      </span>
-                    </div>
-                  ))}
+              <div className="p-6">
+                <h3 className="text-2xl font-semibold text-white mb-3">{item.recipe.name}</h3>
+                {item.recipe.description && (
+                  <p className="text-gray-300 mb-4">{item.recipe.description}</p>
+                )}
+                
+                <div className="border-t border-gray-700 pt-4">
+                  <h4 className="font-semibold text-gray-300 mb-3">Ingredients:</h4>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {item.recipe.ingredients?.map((ingredient: any) => (
+                      <div key={ingredient.id} className="flex justify-between items-center p-2 bg-gray-700 rounded">
+                        <span className="text-gray-300">{ingredient.name}</span>
+                        <span className="text-gray-400 text-sm">
+                          {formatDisplayFraction(ingredient.amount)} {ingredient.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
