@@ -5,6 +5,58 @@ import { InstaQLEntity } from '@instantdb/react';
 import db from '../../../lib/db';
 import schema from '../../../instant.schema';
 
+// Shared component for displaying menu items
+function MenuItemCard({ item, filesData }: { item: any; filesData?: any }) {
+  // Helper function to resolve photo URL from recipe data
+  const resolvePhotoUrl = (recipe: any) => {
+    // If photoUrl is already populated and is a real URL, use it
+    if (recipe.photoUrl && recipe.photoUrl.startsWith('http')) {
+      return recipe.photoUrl;
+    }
+    
+    // If we have a fileid but no photoUrl (or photoUrl is empty/file ID), resolve it
+    if (recipe.fileid && filesData?.$files) {
+      const file = filesData.$files.find((f: any) => f.id === recipe.fileid);
+      if (file?.url) {
+        return file.url;
+      }
+    }
+    
+    return '';
+  };
+
+  return (
+    <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden">
+      {(() => {
+        const imageUrl = resolvePhotoUrl(item.recipe);
+        return imageUrl ? (
+          <div className="w-full aspect-square overflow-hidden">
+            <img 
+              src={imageUrl} 
+              alt={item.recipe.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        ) : null;
+      })()}
+      <div className="p-6 text-center">
+        <h3 className="text-2xl font-semibold text-saffron mb-3">{item.recipe.name}</h3>
+        {item.recipe.description && (
+          <p className="text-night-800 mb-6 text-left">{item.recipe.description}</p>
+        )}
+        
+        {item.recipe.ingredients && item.recipe.ingredients.length > 0 && (
+          <p className="text-night-900 text-sm italic mt-6">
+            {item.recipe.ingredients.map((ingredient: any) => ingredient.name).join(', ')}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type MenuWithItems = InstaQLEntity<
   typeof schema,
   'menus',
@@ -91,10 +143,16 @@ function formatDisplayFraction(amount: string): JSX.Element {
   return <span>{amount}</span>;
 }
 
-export default function PublicMenuPage({ params }: { params: { id: string } }) {
+export default async function PublicMenuPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
+  return <MenuPageContent menuId={id} />;
+}
+
+function MenuPageContent({ menuId }: { menuId: string }) {
   const { data, isLoading, error } = db.useQuery({
     menus: {
-      $: { where: { id: params.id } },
+      $: { where: { id: menuId } },
       items: {
         $: { order: { order: 'asc' } },
         recipe: {
@@ -104,6 +162,7 @@ export default function PublicMenuPage({ params }: { params: { id: string } }) {
         }
       }
     },
+    $files: {}
   });
 
   const menu = data?.menus?.[0] as MenuWithItems | undefined;
@@ -154,39 +213,9 @@ export default function PublicMenuPage({ params }: { params: { id: string } }) {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {menu.items?.map((item: any) => (
-            <div key={item.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-              {item.recipe.photoUrl && (
-                <div className="w-full h-64 overflow-hidden">
-                  <img 
-                    src={item.recipe.photoUrl} 
-                    alt={item.recipe.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="p-6">
-                <h3 className="text-2xl font-semibold text-white mb-3">{item.recipe.name}</h3>
-                {item.recipe.description && (
-                  <p className="text-gray-300 mb-4">{item.recipe.description}</p>
-                )}
-                
-                <div className="border-t border-gray-700 pt-4">
-                  <h4 className="font-semibold text-gray-300 mb-3">Ingredients:</h4>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {item.recipe.ingredients?.map((ingredient: any) => (
-                      <div key={ingredient.id} className="flex justify-between items-center p-2 bg-gray-700 rounded">
-                        <span className="text-gray-300">{ingredient.name}</span>
-                        <span className="text-gray-400 text-sm">
-                          {formatDisplayFraction(ingredient.amount)} {ingredient.unit}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <MenuItemCard key={item.id} item={item} filesData={data} />
           ))}
         </div>
 

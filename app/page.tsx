@@ -195,14 +195,89 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
       ingredients: {
         $: { order: { order: 'asc' } }
       }
-    },
-    $files: {}
+    }
   });
 
-  // Helper function to get file URL from file ID
-  const getFileUrl = (fileId: string) => {
-    const file = data?.$files?.find((f: any) => f.id === fileId);
-    return file?.url;
+  // Get file IDs that need to be resolved to URLs
+  const fileIds = data?.recipes?.map((recipe: any) => recipe.photoUrl)
+    .filter((url: string) => url && !url.startsWith('http')) || [];
+  
+  const { data: filesData } = db.useQuery(
+    fileIds.length > 0 ? {
+      $files: {
+        $: { where: { id: { in: fileIds } } }
+      }
+    } : {}
+  );
+
+  // Helper function to resolve photo URL from recipe data
+  const resolvePhotoUrl = (recipe: any) => {
+    // If photoUrl is already populated and is a real URL, use it
+    if (recipe.photoUrl && recipe.photoUrl.startsWith('http')) {
+      return recipe.photoUrl;
+    }
+    
+    // If we have a fileid but no photoUrl (or photoUrl is empty/file ID), resolve it
+    if (recipe.fileid && filesData?.$files) {
+      const file = filesData.$files.find((f: any) => f.id === recipe.fileid);
+      if (file?.url) {
+        // Lazily update the photoUrl in the database
+        if (!recipe.photoUrl || !recipe.photoUrl.startsWith('http')) {
+          db.transact([
+            db.tx.recipes[recipe.id].update({ photoUrl: file.url })
+          ]);
+        }
+        return file.url;
+      }
+    }
+    
+    return '';
+  };
+
+  // Helper function to compress and resize images to square format
+  const compressImage = (file: File, size = 600, quality = 0.8): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Set canvas to square dimensions
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Calculate crop dimensions to make square
+        const { width, height } = img;
+        const minDim = Math.min(width, height);
+        const cropX = (width - minDim) / 2;
+        const cropY = (height - minDim) / 2;
+        
+        // Fill with white background (in case of transparency)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Draw cropped square image
+        ctx.drawImage(
+          img,
+          cropX, cropY, minDim, minDim,  // Source (crop to square)
+          0, 0, size, size               // Destination (scale to target size)
+        );
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); // Fallback to original if compression fails
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
   };
 
   const addIngredient = () => {
@@ -226,26 +301,53 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
     const recipeId = editingRecipe || id();
     const now = Date.now();
     let photoUrl = newRecipe.photoUrl;
+    let fileId: string | undefined = undefined;
 
     // Upload image if a new file was selected
     if (selectedImage) {
       try {
-        const imagePath = `recipes/${recipeId}/${selectedImage.name}`;
-        console.log('Uploading file:', selectedImage.name, 'to path:', imagePath);
-        const response = await db.storage.uploadFile(imagePath, selectedImage, {
-          contentType: selectedImage.type,
+        console.log('Original file size:', (selectedImage.size / 1024 / 1024).toFixed(2), 'MB');
+        
+        // Compress the image before upload
+        const compressedImage = await compressImage(selectedImage);
+        console.log('Compressed file size:', (compressedImage.size / 1024 / 1024).toFixed(2), 'MB');
+        
+        const imagePath = `recipes/${recipeId}/${compressedImage.name}`;
+        console.log('Uploading compressed file:', compressedImage.name, 'to path:', imagePath);
+        
+        const response = await db.storage.uploadFile(imagePath, compressedImage, {
+          contentType: compressedImage.type,
         });
         console.log('Full upload response:', response);
         console.log('Response data:', response.data);
         
-        // Try to get URL from storage API directly
+        // Store the file ID and resolve URL immediately
         if (response.data && response.data.id) {
-          // Store the file ID temporarily and we'll query it with useQuery
-          photoUrl = response.data.id;
-          console.log('Using file ID as temporary photoUrl:', photoUrl);
+          fileId = response.data.id;
+          console.log('Stored file ID:', fileId);
+          
+          // Eagerly resolve the file URL
+          try {
+            const fileQuery = await db.queryOnce({
+              $files: {
+                $: { where: { id: fileId } }
+              }
+            });
+            
+            if (fileQuery.data?.$files?.[0]?.url) {
+              photoUrl = fileQuery.data.$files[0].url;
+              console.log('Resolved file URL:', photoUrl);
+            } else {
+              console.log('File URL not yet available, will be resolved on next load');
+              photoUrl = ''; // Keep empty, will be resolved by existing logic
+            }
+          } catch (error) {
+            console.error('Failed to resolve file URL:', error);
+            photoUrl = ''; // Keep empty, will be resolved by existing logic
+          }
         } else {
           console.error('No file ID in upload response');
-          alert('Upload failed - no file ID returned.');
+          alert('Upload failed - no file data returned.');
           return;
         }
       } catch (error) {
@@ -257,7 +359,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
     const transactions = [];
     
-    console.log('Final photoUrl before saving to database:', photoUrl);
+    console.log('Final photoUrl and fileId before saving to database:', { photoUrl, fileId });
     
     if (editingRecipe) {
       // For editing, just update the recipe without changing links
@@ -265,6 +367,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         name: newRecipe.name,
         description: newRecipe.description,
         photoUrl: photoUrl,
+        fileid: fileId,
         updatedAt: now,
       };
       console.log('Updating existing recipe with data:', updateData);
@@ -277,6 +380,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         name: newRecipe.name,
         description: newRecipe.description,
         photoUrl: photoUrl,
+        fileid: fileId,
         createdAt: now,
         updatedAt: now,
       };
@@ -334,6 +438,14 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   const deleteRecipe = (recipeId: string) => {
     db.transact(db.tx.recipes[recipeId].delete());
     setDeletingRecipe(null);
+    // Close edit form if the deleted recipe was being edited
+    if (editingRecipe === recipeId) {
+      setShowForm(false);
+      setEditingRecipe(null);
+      setNewRecipe({ name: '', description: '', photoUrl: '' });
+      setSelectedImage(null);
+      setIngredients([{ name: '', amount: '', unit: '' }]);
+    }
   };
 
   const startEditRecipe = (recipe: RecipeWithIngredients) => {
@@ -397,19 +509,30 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 />
                 {selectedImage && (
                   <div className="mt-2 text-sm text-night-800">
-                    Selected: {selectedImage.name}
+                    Selected: {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+                    <div className="text-xs text-night-700 mt-1">
+                      Will be cropped to square and compressed to JPEG (600x600px) before upload
+                    </div>
                   </div>
                 )}
-                {!selectedImage && editingRecipe && newRecipe.photoUrl && getFileUrl(newRecipe.photoUrl) && (
+                {!selectedImage && editingRecipe && (
+                  (() => {
+                    const recipe = data?.recipes?.find((r: any) => r.id === editingRecipe);
+                    const imageUrl = recipe ? resolvePhotoUrl(recipe) : '';
+                    return imageUrl ? (
                   <div className="mt-2">
                     <p className="text-sm text-night-800 mb-2">Current image:</p>
                     <img 
-                      src={getFileUrl(newRecipe.photoUrl)} 
+                          src={imageUrl} 
                       alt="Current recipe" 
-                      className="w-32 h-24 object-cover rounded border border-night-600"
+                      className="w-24 h-24 object-cover rounded border border-night-600"
+                      loading="lazy"
+                      decoding="async"
                     />
-                    <p className="text-xs text-night-700 mt-1">Select a new file to replace this image</p>
-                  </div>
+                        <p className="text-xs text-night-700 mt-1">Select a new file to replace this image</p>
+                      </div>
+                    ) : null;
+                  })()
                 )}
               </div>
 
@@ -473,6 +596,19 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
               >
                 Cancel
               </button>
+              {editingRecipe && (
+                <button
+                  onClick={() => {
+                    const recipe = data?.recipes?.find(r => r.id === editingRecipe);
+                    if (recipe) {
+                      confirmDeleteRecipe(recipe);
+                    }
+                  }}
+                  className="px-6 py-2 bg-amaranth text-night rounded hover:bg-amaranth-600"
+                >
+                  Delete Recipe
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -508,52 +644,45 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-3">
         {data?.recipes?.map((recipe: RecipeWithIngredients) => (
           <div key={recipe.id} className="bg-night-400 border border-night-600 rounded-lg overflow-hidden cursor-pointer hover:bg-night-500 hover:border-saffron transition-colors"
                onClick={() => onSelectRecipe(recipe.id)}>
-            {recipe.photoUrl && getFileUrl(recipe.photoUrl) && (
-              <div className="w-full h-48 overflow-hidden">
-                <img 
-                  src={getFileUrl(recipe.photoUrl)} 
-                  alt={recipe.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold text-saffron">{recipe.name}</h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditRecipe(recipe);
-                    }}
-                    className="text-moonstone hover:text-moonstone-600 text-sm px-2 py-1"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      confirmDeleteRecipe(recipe);
-                    }}
-                    className="text-amaranth hover:text-amaranth-600"
-                  >
-                    ×
-                  </button>
+            {(() => {
+              const imageUrl = resolvePhotoUrl(recipe);
+              return imageUrl ? (
+                <div className="w-full aspect-square overflow-hidden">
+                  <img 
+                    src={imageUrl} 
+                    alt={recipe.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
+              ) : null;
+            })()}
+            <div className="p-2">
+              <div className="flex justify-between items-start mb-1">
+                <h3 className="text-sm font-semibold text-saffron">{recipe.name}</h3>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startEditRecipe(recipe);
+                  }}
+                  className="text-moonstone hover:text-moonstone-600 text-xs px-1 py-0.5"
+                >
+                  Edit
+                </button>
               </div>
               
               {recipe.description && (
-                <p className="text-night-800 mb-4">{recipe.description}</p>
+                <p className="text-night-800 mb-1 text-xs">{recipe.description}</p>
               )}
               
-              <div className="space-y-2">
-                <h4 className="font-medium text-night-900">Ingredients:</h4>
+              <div className="space-y-0.5">
                 {recipe.ingredients?.map((ingredient: any) => (
-                  <div key={ingredient.id} className="text-night-900 text-sm">
+                  <div key={ingredient.id} className="text-night-900 text-xs">
                     {formatDisplayFraction(ingredient.amount)} {ingredient.unit} {ingredient.name}
                   </div>
                 ))}
@@ -561,6 +690,47 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Shared component for displaying menu items
+function MenuItemCard({ item, showImage = true, resolvePhotoUrl }: { 
+  item: any; 
+  showImage?: boolean;
+  resolvePhotoUrl?: (recipe: any) => string;
+}) {
+  // Default resolver just returns the URL as-is
+  const resolver = resolvePhotoUrl || ((recipe: any) => recipe.photoUrl || '');
+  
+  return (
+    <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden">
+      {showImage && (() => {
+        const imageUrl = resolver(item.recipe);
+        return imageUrl ? (
+          <div className="w-full aspect-square overflow-hidden">
+            <img 
+              src={imageUrl} 
+              alt={item.recipe.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        ) : null;
+      })()}
+      <div className="p-6 text-center">
+        <h3 className="text-2xl font-semibold text-saffron mb-3">{item.recipe.name}</h3>
+        {item.recipe.description && (
+          <p className="text-night-800 mb-6 text-left">{item.recipe.description}</p>
+        )}
+        
+        {item.recipe.ingredients && item.recipe.ingredients.length > 0 && (
+          <p className="text-night-900 text-sm italic mt-6">
+            {item.recipe.ingredients.map((ingredient: any) => ingredient.name).join(', ')}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -663,15 +833,8 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
       ingredients: {
         $: { order: { order: 'asc' } }
       }
-    },
-    $files: {}
+    }
   });
-
-  // Helper function to get file URL from file ID
-  const getFileUrl = (fileId: string) => {
-    const file = recipesData?.$files?.find((f: any) => f.id === fileId);
-    return file?.url;
-  };
 
   const currentRecipe = recipesData?.recipes?.find(r => r.id === selectedRecipeId);
 
@@ -718,12 +881,14 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
       ) : (
         <div className="space-y-6">
           <div className="bg-night-400 border border-saffron rounded-lg overflow-hidden">
-            {currentRecipe?.photoUrl && getFileUrl(currentRecipe.photoUrl) && (
-              <div className="w-full h-64 overflow-hidden">
+            {currentRecipe?.photoUrl && (
+              <div className="w-full aspect-square max-w-md mx-auto overflow-hidden">
                 <img 
-                  src={getFileUrl(currentRecipe.photoUrl)} 
+                  src={currentRecipe.photoUrl} 
                   alt={currentRecipe.name}
                   className="w-full h-full object-cover"
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
             )}
@@ -1067,29 +1232,16 @@ function MenusView() {
               <p className="text-gray-400 text-lg">{menu.description}</p>
             )}
             
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 gap-4">
               {menu?.items?.map((item: any) => (
-                <div key={item.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-                  <h3 className="text-xl font-semibold text-white mb-2">{item.recipe.name}</h3>
-                  {item.recipe.description && (
-                    <p className="text-gray-400 mb-4">{item.recipe.description}</p>
-                  )}
-                  <div className="space-y-1">
-                    <h4 className="font-medium text-gray-300 text-sm">Ingredients:</h4>
-                    {item.recipe.ingredients?.map((ingredient: any) => (
-                      <div key={ingredient.id} className="text-gray-400 text-sm">
-                        {formatDisplayFraction(ingredient.amount)} {ingredient.unit} {ingredient.name}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <MenuItemCard key={item.id} item={item} showImage={true} />
               ))}
             </div>
           </div>
 
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 h-fit">
+          <div className="bg-night-400 border border-saffron rounded-lg p-6 h-fit">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-white mb-4">QR Code for Guests</h3>
+              <h3 className="text-lg font-semibold text-saffron mb-4">QR Code for Guests</h3>
               <div className="bg-white p-4 rounded-lg inline-block mb-4">
                 <img 
                   src={qrCodeUrl || menu?.qrCode} 
@@ -1097,12 +1249,18 @@ function MenusView() {
                   className="w-48 h-48"
                 />
               </div>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-night-800 text-sm mb-4">
                 Guests can scan this QR code to view your menu
               </p>
+              <div className="bg-night-600 p-3 rounded text-center mb-4">
+                <p className="text-night-900 text-xs mb-1">Or share this link:</p>
+                <p className="text-moonstone text-sm break-all">
+                  {`${window.location.origin}/menu/${menu.id}`}
+                </p>
+              </div>
               <button
                 onClick={() => generateNewQR(menu)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-moonstone text-night rounded-lg hover:bg-moonstone-600"
               >
                 Refresh QR Code
               </button>
