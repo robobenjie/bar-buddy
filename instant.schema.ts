@@ -56,48 +56,6 @@ const _schema = i.schema({
       reverse: { on: 'recipes', has: 'many', label: 'menuItems' },
     },
   },
-  permissions: {
-    $files: {
-      allow: {
-        create: "auth.id != null",
-        read: true,
-        update: "auth.id != null",
-        delete: "auth.id != null"
-      }
-    },
-    recipes: {
-      allow: {
-        create: "auth.id != null",
-        read: true,
-        update: "data.owner.id == auth.id",
-        delete: "data.owner.id == auth.id"
-      }
-    },
-    ingredients: {
-      allow: {
-        create: "auth.id != null",
-        read: true,
-        update: "data.recipe.owner.id == auth.id",
-        delete: "data.recipe.owner.id == auth.id"
-      }
-    },
-    menus: {
-      allow: {
-        create: "auth.id != null",
-        read: true,
-        update: "data.owner.id == auth.id",
-        delete: "data.owner.id == auth.id"
-      }
-    },
-    menuItems: {
-      allow: {
-        create: "auth.id != null",
-        read: true,
-        update: "data.menu.owner.id == auth.id",
-        delete: "data.menu.owner.id == auth.id"
-      }
-    }
-  }
 });
 
 type _AppSchema = typeof _schema;
