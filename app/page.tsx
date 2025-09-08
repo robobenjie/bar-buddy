@@ -147,11 +147,17 @@ function Navigation({ currentView, setCurrentView }: {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-saffron cursor-pointer" onClick={() => setCurrentView('recipes')}>🍸 Bar Buddy</h1>
+            <h1 className="text-2xl font-bold text-saffron cursor-pointer" onClick={() => {
+              setCurrentView('recipes');
+              window.location.hash = '';
+            }}>🍸 Bar Buddy</h1>
           </div>
           <div className="flex space-x-4">
             <button
-              onClick={() => setCurrentView('menus')}
+              onClick={() => {
+                setCurrentView('menus');
+                window.location.hash = 'menus';
+              }}
               className={`px-3 py-2 rounded-md text-sm font-medium ${
                 currentView === 'menus'
                   ? 'bg-moonstone text-night'
@@ -794,17 +800,6 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
       ) : (
         <div className="space-y-6">
           <div className="bg-night-400 border border-saffron rounded-lg overflow-hidden">
-            {currentRecipe?.imageData && (
-              <div className="w-full aspect-square max-w-md mx-auto overflow-hidden">
-                <img 
-                  src={currentRecipe.imageData} 
-                  alt={currentRecipe.name}
-                  className="w-full h-full object-cover"
-                  loading="eager"
-                  decoding="async"
-                />
-              </div>
-            )}
             <div className="p-6">
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -1343,14 +1338,46 @@ function Main() {
   const [currentView, setCurrentView] = useState('recipes');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
 
+  // Initialize view from URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1); // Remove the '#'
+      if (hash === 'menus') {
+        setCurrentView('menus');
+        setSelectedRecipeId(null);
+      } else if (hash.startsWith('make/')) {
+        const recipeId = hash.split('/')[1];
+        if (recipeId) {
+          setCurrentView('make');
+          setSelectedRecipeId(recipeId);
+        }
+      } else {
+        setCurrentView('recipes');
+        setSelectedRecipeId(null);
+      }
+    };
+
+    // Handle initial load
+    handleHashChange();
+
+    // Listen for hash changes (back/forward button)
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
+
   const handleSelectRecipe = (recipeId: string) => {
     setSelectedRecipeId(recipeId);
     setCurrentView('make');
+    window.location.hash = `make/${recipeId}`;
   };
 
   const handleBackToRecipes = () => {
     setSelectedRecipeId(null);
     setCurrentView('recipes');
+    window.location.hash = '';
   };
 
   return (
