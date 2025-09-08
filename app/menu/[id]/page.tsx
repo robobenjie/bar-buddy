@@ -6,29 +6,16 @@ import db from '../../../lib/db';
 import schema from '../../../instant.schema';
 
 // Shared component for displaying menu items
-function MenuItemCard({ item, filesData }: { item: any; filesData?: any }) {
-  // Helper function to resolve photo URL from recipe data
-  const resolvePhotoUrl = (recipe: any) => {
-    // If photoUrl is already populated and is a real URL, use it
-    if (recipe.photoUrl && recipe.photoUrl.startsWith('http')) {
-      return recipe.photoUrl;
-    }
-    
-    // If we have a fileid but no photoUrl (or photoUrl is empty/file ID), resolve it
-    if (recipe.fileid && filesData?.$files) {
-      const file = filesData.$files.find((f: any) => f.id === recipe.fileid);
-      if (file?.url) {
-        return file.url;
-      }
-    }
-    
-    return '';
+function MenuItemCard({ item }: { item: any }) {
+  // Helper function to get recipe image data
+  const getRecipeImage = (recipe: any) => {
+    return recipe.imageData || '';
   };
 
   return (
     <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden">
       {(() => {
-        const imageUrl = resolvePhotoUrl(item.recipe);
+        const imageUrl = getRecipeImage(item.recipe);
         return imageUrl ? (
           <div className="w-full aspect-square overflow-hidden">
             <img 
@@ -161,8 +148,7 @@ function MenuPageContent({ menuId }: { menuId: string }) {
           }
         }
       }
-    },
-    $files: {}
+    }
   });
 
   const menu = data?.menus?.[0] as MenuWithItems | undefined;
@@ -215,7 +201,7 @@ function MenuPageContent({ menuId }: { menuId: string }) {
 
         <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {menu.items?.map((item: any) => (
-            <MenuItemCard key={item.id} item={item} filesData={data} />
+            <MenuItemCard key={item.id} item={item} />
           ))}
         </div>
 

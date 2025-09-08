@@ -4,6 +4,8 @@ Before generating a new next app you check to see if a next project already exis
 
 If the Instant MCP is available use the tools to create apps and manage schema.
 
+Prefer to push schema and permissions using the schema.ts files like so: `npx instant-cli push schema -y`
+
 ## InstantDB Permissions Management
 Permissions are defined in `instant.perms.ts` and should be pushed using the InstantDB MCP tools whenever they change. The permissions file includes:
 - File storage permissions for authenticated users

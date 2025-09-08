@@ -1,72 +1,18 @@
-{
-  "$users": {
-    "allow": {
-      "view": "auth.id == data.id",
-      "create": "false",
-      "update": "false",
-      "delete": "false",
-      "unlink": {
-        "recipes": "auth.id == data.id",
-        "menus":   "auth.id == data.id"
-      }
-    }
-  },
+// Docs: https://www.instantdb.com/docs/permissions
 
-  "recipes": {
-    "allow": {
-      "view": "true",
-      "create": "auth.id != null",
-      "update": "auth.id in data.ref('owner.id')",
-      "delete": "auth.id in data.ref('owner.id')",
-      "unlink": {
-        "owner": "linkedData.id == auth.id"
-      }
-    }
-  },
+import type { InstantRules } from "@instantdb/react";
 
-  "ingredients": {
-    "allow": {
-      "view": "true",
-      "create": "auth.id != null",
-      "update": "auth.id in data.ref('recipe.owner.id')",
-      "delete": "auth.id in data.ref('recipe.owner.id')",
-      "unlink": {
-        "recipe": "linkedData.owner.id == auth.id"
-      }
-    }
+const rules = {
+  $users: {
+    allow: {
+      view: "true",
+    },
   },
-
-  "menus": {
-    "allow": {
-      "view": "true",
-      "create": "auth.id != null",
-      "update": "auth.id in data.ref('owner.id')",
-      "delete": "auth.id in data.ref('owner.id')",
-      "unlink": {
-        "owner": "linkedData.id == auth.id"
-      }
-    }
+  $default: {
+    allow: {
+      $default: "true",
+    },
   },
+} satisfies InstantRules;
 
-  "menuItems": {
-    "allow": {
-      "view": "true",
-      "create": "auth.id != null",
-      "update": "auth.id in data.ref('menu.owner.id')",
-      "delete": "auth.id in data.ref('menu.owner.id')",
-      "unlink": {
-        "menu":   "linkedData.owner.id == auth.id",
-        "recipe": "linkedData.owner.id == auth.id"
-      }
-    }
-  },
-
-  "$files": {
-    "allow": {
-      "view": "true",
-      "create": "auth.id != null",
-      "update": "auth.id != null",
-      "delete": "auth.id != null"
-    }
-  }
-}
+export default rules;

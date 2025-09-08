@@ -18,6 +18,11 @@ type MenuWithItems = InstaQLEntity<
   { items: { recipe: { ingredients: {} } } }
 >;
 
+// Helper function to get recipe image data
+const getRecipeImage = (recipe: any) => {
+  return recipe.imageData || '';
+};
+
 function randomHandle() {
   const adjectives = ['Mixologist', 'Bartender', 'Chef', 'Master', 'Expert', 'Pro'];
   const nouns = ['Cocktail', 'Martini', 'Whiskey', 'Gin', 'Rum', 'Vodka'];
@@ -182,7 +187,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   const [showForm, setShowForm] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<string | null>(null);
   const [deletingRecipe, setDeletingRecipe] = useState<{ id: string; name: string } | null>(null);
-  const [newRecipe, setNewRecipe] = useState({ name: '', description: '', photoUrl: '' });
+  const [newRecipe, setNewRecipe] = useState({ name: '', description: '', imageData: '' });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [ingredients, setIngredients] = useState([{ name: '', amount: '', unit: '' }]);
 
@@ -199,44 +204,9 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
     }
   });
 
-  // Get file IDs that need to be resolved to URLs
-  const fileIds = data?.recipes?.map((recipe: any) => recipe.photoUrl)
-    .filter((url: string) => url && !url.startsWith('http')) || [];
-  
-  const { data: filesData } = db.useQuery(
-    fileIds.length > 0 ? {
-      $files: {
-        $: { where: { id: { in: fileIds } } }
-      }
-    } : {}
-  );
 
-  // Helper function to resolve photo URL from recipe data
-  const resolvePhotoUrl = (recipe: any) => {
-    // If photoUrl is already populated and is a real URL, use it
-    if (recipe.photoUrl && recipe.photoUrl.startsWith('http')) {
-      return recipe.photoUrl;
-    }
-    
-    // If we have a fileid but no photoUrl (or photoUrl is empty/file ID), resolve it
-    if (recipe.fileid && filesData?.$files) {
-      const file = filesData.$files.find((f: any) => f.id === recipe.fileid);
-      if (file?.url) {
-        // Lazily update the photoUrl in the database
-        if (!recipe.photoUrl || !recipe.photoUrl.startsWith('http')) {
-          db.transact([
-            db.tx.recipes[recipe.id].update({ photoUrl: file.url })
-          ]);
-        }
-        return file.url;
-      }
-    }
-    
-    return '';
-  };
-
-  // Helper function to compress and resize images to square format
-  const compressImage = (file: File, size = 600, quality = 0.8): Promise<File> => {
+  // Helper function to compress and resize images to base64 format
+  const compressImageToBase64 = (file: File, size = 600, quality = 0.8): Promise<string> => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
@@ -264,17 +234,9 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
           0, 0, size, size               // Destination (scale to target size)
         );
         
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          } else {
-            resolve(file); // Fallback to original if compression fails
-          }
-        }, 'image/jpeg', quality);
+        // Convert to base64
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(base64);
       };
       
       img.src = URL.createObjectURL(file);
@@ -301,80 +263,33 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
     const recipeId = editingRecipe || id();
     const now = Date.now();
-    let photoUrl = newRecipe.photoUrl;
-    let fileId: string | undefined = undefined;
+    let imageData = newRecipe.imageData;
 
     // Upload image if a new file was selected
     if (selectedImage) {
       try {
         console.log('Original file size:', (selectedImage.size / 1024 / 1024).toFixed(2), 'MB');
         
-        // Compress the image before upload
-        const compressedImage = await compressImage(selectedImage);
-        console.log('Compressed file size:', (compressedImage.size / 1024 / 1024).toFixed(2), 'MB');
-        
-        // Sanitize filename - remove spaces, special characters, keep only alphanumeric, dots, dashes
-        const sanitizedFilename = compressedImage.name
-          .replace(/[^a-zA-Z0-9.-]/g, '_')
-          .replace(/_{2,}/g, '_')
-          .replace(/^_|_$/g, '');
-        
-        const imagePath = `recipes/${recipeId}/${sanitizedFilename}`;
-        console.log('Uploading compressed file:', compressedImage.name, 'sanitized to:', sanitizedFilename, 'path:', imagePath);
-        
-        const response = await db.storage.uploadFile(imagePath, compressedImage, {
-          contentType: compressedImage.type,
-        });
-        console.log('Full upload response:', response);
-        console.log('Response data:', response.data);
-        
-        // Store the file ID and resolve URL immediately
-        if (response.data && response.data.id) {
-          fileId = response.data.id;
-          console.log('Stored file ID:', fileId);
-          
-          // Eagerly resolve the file URL
-          try {
-            const fileQuery = await db.queryOnce({
-              $files: {
-                $: { where: { id: fileId } }
-              }
-            });
-            
-            if (fileQuery.data?.$files?.[0]?.url) {
-              photoUrl = fileQuery.data.$files[0].url;
-              console.log('Resolved file URL:', photoUrl);
-            } else {
-              console.log('File URL not yet available, will be resolved on next load');
-              photoUrl = ''; // Keep empty, will be resolved by existing logic
-            }
-          } catch (error) {
-            console.error('Failed to resolve file URL:', error);
-            photoUrl = ''; // Keep empty, will be resolved by existing logic
-          }
-        } else {
-          console.error('No file ID in upload response');
-          alert('Upload failed - no file data returned.');
-          return;
-        }
+        // Compress the image and convert to base64
+        imageData = await compressImageToBase64(selectedImage);
+        console.log('Converted to base64, length:', imageData.length);
       } catch (error) {
-        console.error('Failed to upload image:', error);
-        alert('Failed to upload image. Please try again.');
+        console.error('Failed to process image:', error);
+        alert('Failed to process image. Please try again.');
         return;
       }
     }
 
     const transactions = [];
     
-    console.log('Final photoUrl and fileId before saving to database:', { photoUrl, fileId });
+    console.log('Final imageData before saving to database:', { imageDataLength: imageData.length });
     
     if (editingRecipe) {
       // For editing, just update the recipe without changing links
       const updateData = {
         name: newRecipe.name,
         description: newRecipe.description,
-        photoUrl: photoUrl,
-        fileid: fileId,
+        imageData: imageData,
         updatedAt: now,
       };
       console.log('Updating existing recipe with data:', updateData);
@@ -386,8 +301,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
       const createData = {
         name: newRecipe.name,
         description: newRecipe.description,
-        photoUrl: photoUrl,
-        fileid: fileId,
+        imageData: imageData,
         createdAt: now,
         updatedAt: now,
       };
@@ -431,7 +345,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
     await db.transact(transactions);
     console.log('Transaction completed successfully');
 
-    setNewRecipe({ name: '', description: '', photoUrl: '' });
+    setNewRecipe({ name: '', description: '', imageData: '' });
     setSelectedImage(null);
     setIngredients([{ name: '', amount: '', unit: '' }]);
     setEditingRecipe(null);
@@ -443,13 +357,14 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   };
 
   const deleteRecipe = (recipeId: string) => {
+    console.log('Deleting recipe:', recipeId);
     db.transact(db.tx.recipes[recipeId].delete());
     setDeletingRecipe(null);
     // Close edit form if the deleted recipe was being edited
     if (editingRecipe === recipeId) {
       setShowForm(false);
       setEditingRecipe(null);
-      setNewRecipe({ name: '', description: '', photoUrl: '' });
+      setNewRecipe({ name: '', description: '', imageData: '' });
       setSelectedImage(null);
       setIngredients([{ name: '', amount: '', unit: '' }]);
     }
@@ -457,7 +372,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
   const startEditRecipe = (recipe: RecipeWithIngredients) => {
     setEditingRecipe(recipe.id);
-    setNewRecipe({ name: recipe.name, description: recipe.description || '', photoUrl: recipe.photoUrl || '' });
+    setNewRecipe({ name: recipe.name, description: recipe.description || '', imageData: recipe.imageData || '' });
     setSelectedImage(null); // Reset file selection when editing
     setIngredients(
       recipe.ingredients?.map((ing: any) => ({
@@ -525,7 +440,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 {!selectedImage && editingRecipe && (
                   (() => {
                     const recipe = data?.recipes?.find((r: any) => r.id === editingRecipe);
-                    const imageUrl = recipe ? resolvePhotoUrl(recipe) : '';
+                    const imageUrl = recipe ? getRecipeImage(recipe) : '';
                     return imageUrl ? (
                   <div className="mt-2">
                     <p className="text-sm text-night-800 mb-2">Current image:</p>
@@ -595,7 +510,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 onClick={() => {
                   setShowForm(false);
                   setEditingRecipe(null);
-                  setNewRecipe({ name: '', description: '', photoUrl: '' });
+                  setNewRecipe({ name: '', description: '', imageData: '' });
                   setSelectedImage(null);
                   setIngredients([{ name: '', amount: '', unit: '' }]);
                 }}
@@ -656,7 +571,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
           <div key={recipe.id} className="bg-night-400 border border-night-600 rounded-lg overflow-hidden cursor-pointer hover:bg-night-500 hover:border-saffron transition-colors"
                onClick={() => onSelectRecipe(recipe.id)}>
             {(() => {
-              const imageUrl = resolvePhotoUrl(recipe);
+              const imageUrl = getRecipeImage(recipe);
               return imageUrl ? (
                 <div className="w-full aspect-square overflow-hidden">
                   <img 
@@ -703,18 +618,15 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 }
 
 // Shared component for displaying menu items
-function MenuItemCard({ item, showImage = true, resolvePhotoUrl }: { 
+function MenuItemCard({ item, showImage = true }: { 
   item: any; 
   showImage?: boolean;
-  resolvePhotoUrl?: (recipe: any) => string;
 }) {
-  // Default resolver just returns the URL as-is
-  const resolver = resolvePhotoUrl || ((recipe: any) => recipe.photoUrl || '');
   
   return (
     <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden">
       {showImage && (() => {
-        const imageUrl = resolver(item.recipe);
+        const imageUrl = getRecipeImage(item.recipe);
         return imageUrl ? (
           <div className="w-full aspect-square overflow-hidden">
             <img 
@@ -888,10 +800,10 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
       ) : (
         <div className="space-y-6">
           <div className="bg-night-400 border border-saffron rounded-lg overflow-hidden">
-            {currentRecipe?.photoUrl && (
+            {currentRecipe?.imageData && (
               <div className="w-full aspect-square max-w-md mx-auto overflow-hidden">
                 <img 
-                  src={currentRecipe.photoUrl} 
+                  src={currentRecipe.imageData} 
                   alt={currentRecipe.name}
                   className="w-full h-full object-cover"
                   loading="eager"
