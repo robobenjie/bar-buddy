@@ -1,36 +1,182 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bar Buddy 🍸
+
+A home bartender recipe manager built with Next.js, InstantDB, and Tailwind CSS. Create, manage, and share cocktail recipes with integrated menu generation and QR code sharing.
+
+## Tech Stack
+
+- **Next.js 15** - React framework with App Router
+- **InstantDB** - Real-time database with React integration
+- **Tailwind CSS** - Utility-first CSS framework
+- **QR Code** - Menu sharing via QR codes
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js (v18+)
+- InstantDB app setup (see instant-rules.md)
 
+### Installation
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
+Create a `.env.local` file:
+```
+NEXT_PUBLIC_INSTANT_APP_ID=your_instant_app_id
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture Overview
 
-## Learn More
+### Database Schema (`instant.schema.ts`)
+- **recipes**: Core recipe entities with base64 image data
+- **ingredients**: Ordered ingredient lists linked to recipes  
+- **menus**: Collections of recipes for sharing
+- **menuItems**: Junction table linking menus to recipes with ordering
+- **$users**: InstantDB user management
+- **$files**: File storage (legacy, replaced with base64 images)
 
-To learn more about Next.js, take a look at the following resources:
+### Key Components Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Main App** (`app/page.tsx`):
+```
+Main()
+├── Navigation() - Top nav with view switching
+├── RecipesView() - Recipe management and creation
+├── MakeDrinkView() - Step-by-step recipe following
+└── MenusView() - Menu creation and QR sharing
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Navigation System
+- Hash-based routing for browser back/forward support
+- URLs: `/` (recipes), `/#menus` (menus), `/#make/{recipeId}` (making)
+- State managed via `useState` with URL sync via `useEffect`
 
-## Deploy on Vercel
+### Image Handling
+- **Storage**: Base64 JPEG encoding stored in database
+- **Compression**: Canvas API for 600x600px square images at 80% quality
+- **Function**: `compressImageToBase64()` handles file processing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Important Classes & Patterns
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Tailwind Design System
+```css
+/* Color Palette */
+.bg-night        /* Primary dark background */
+.bg-night-400    /* Lighter dark variant */
+.bg-night-600    /* Card backgrounds */
+.text-saffron    /* Primary gold accent */
+.text-moonstone  /* Secondary blue accent */
+.text-night-800  /* Muted text */
+.border-saffron  /* Gold borders */
+```
+
+### Component Patterns
+- **MenuItemCard**: Reusable recipe display component
+  - Flexbox layout: `flex flex-col h-full`
+  - Title centered under image
+  - Description vertically centered in middle
+  - Ingredients fixed at bottom with border separator
+  - Compact padding: `p-3`
+
+### InstantDB Query Patterns
+```javascript
+// Standard recipe query with ingredients
+const { data, isLoading, error } = db.useQuery({
+  recipes: {
+    $: { where: { "owner.id": user.id }, order: { updatedAt: "desc" } },
+    ingredients: { $: { order: { order: "asc" } } }
+  }
+});
+
+// Menu with items and nested recipes
+const { data } = db.useQuery({
+  menus: {
+    $: { where: { id: menuId } },
+    items: {
+      $: { order: { order: "asc" } },
+      recipe: {
+        ingredients: { $: { order: { order: "asc" } } }
+      }
+    }
+  }
+});
+```
+
+## Key Features
+
+### Recipe Management
+- Create/edit recipes with image upload
+- Ingredient management with quantities and units
+- Base64 image storage for simplicity
+- Fraction display with Unicode characters
+
+### Menu Creation  
+- Add recipes to shareable menus
+- Drag-and-drop reordering (order field)
+- QR code generation for public sharing
+- Public menu view at `/menu/[id]`
+
+### Drink Making Interface
+- Step-by-step ingredient checklist
+- Progress tracking with completed ingredients
+- Servings multiplier for scaling recipes
+- No images in making view (focused on instructions)
+
+## File Structure
+```
+app/
+├── layout.tsx          # Root layout with metadata
+├── page.tsx           # Main app with all views
+├── globals.css        # Tailwind and custom styles
+└── menu/[id]/page.tsx # Public menu sharing page
+
+lib/
+└── db.ts             # InstantDB configuration
+
+instant.schema.ts     # Database schema definition
+instant.perms.ts      # Permission rules
+CLAUDE.md            # Development instructions
+```
+
+## Schema Management
+```bash
+# Push schema changes
+npx instant-cli push schema -y
+
+# Push permission changes  
+npx instant-cli push perms -y
+```
+
+## Development Tips
+
+### Adding New Features
+1. Update schema in `instant.schema.ts` if needed
+2. Push schema changes via CLI
+3. Update permissions in `instant.perms.ts` 
+4. Test database queries in components
+5. Follow existing component patterns
+
+### Common Issues
+- **Permission errors**: Check `instant.perms.ts` and push updates
+- **Type errors**: Ensure schema matches TypeScript interfaces
+- **Build errors**: Check for `JSX.Element` → `React.JSX.Element` 
+- **Navigation**: Hash-based routing requires `window.location.hash` updates
+
+### Design Guidelines
+- Use established color palette (night/saffron/moonstone)
+- Follow compact card layout patterns  
+- Center text unless specifically left-aligned
+- Use flexbox for responsive layouts
+- Maintain consistent spacing with Tailwind classes
+
+## Public Menu Sharing
+- Public routes don't require authentication
+- Menu visibility controlled by `isActive` flag
+- QR codes link to `/menu/[id]` public pages
+- No user data exposed in public views
+
+This architecture provides a solid foundation for cocktail recipe management with real-time sync, offline capabilities, and easy sharing mechanisms.

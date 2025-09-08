@@ -1205,7 +1205,7 @@ function MenusView() {
         <h2 className="text-3xl font-bold text-white">My Menus</h2>
         <button
           onClick={() => setShowForm(true)}
-          className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-6 py-2 bg-moonstone text-night font-semibold rounded-lg hover:bg-moonstone-600 transition-colors"
         >
           Create Menu
         </button>
@@ -1240,8 +1240,8 @@ function MenusView() {
                   onClick={() => toggleRecipe(recipe.id)}
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                     selectedRecipes.includes(recipe.id)
-                      ? 'bg-blue-900 border-blue-600'
-                      : 'bg-gray-700 border-gray-600 hover:border-blue-500'
+                      ? 'bg-moonstone-200 border-moonstone'
+                      : 'bg-gray-700 border-gray-600 hover:border-moonstone'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -1249,7 +1249,7 @@ function MenusView() {
                     <div
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                         selectedRecipes.includes(recipe.id)
-                          ? 'bg-blue-600 border-blue-600 text-white'
+                          ? 'bg-moonstone border-moonstone text-night'
                           : 'border-gray-400'
                       }`}
                     >
@@ -1267,7 +1267,7 @@ function MenusView() {
               <button
                 onClick={createMenu}
                 disabled={!newMenu.name.trim() || selectedRecipes.length === 0}
-                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-moonstone text-night rounded hover:bg-moonstone-600 disabled:bg-gray-600 disabled:cursor-not-allowed"
               >
                 Create Menu
               </button>
@@ -1317,7 +1317,7 @@ function MenusView() {
 
             <button
               onClick={() => setShowMenuView(menu.id)}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="w-full px-4 py-2 bg-moonstone text-night rounded hover:bg-moonstone-600"
             >
               View & Share
             </button>
