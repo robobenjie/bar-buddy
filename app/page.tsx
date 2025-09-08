@@ -187,6 +187,10 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   const [newRecipe, setNewRecipe] = useState({ name: '', description: '', imageData: '' });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [ingredients, setIngredients] = useState([{ name: '', amount: '', unit: '' }]);
+  const [showRedditModal, setShowRedditModal] = useState(false);
+  const [redditUrl, setRedditUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   console.log('auth.id', user.id);
   const { data, isLoading } = db.useQuery({
@@ -253,6 +257,94 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
       i === index ? { ...ing, [field]: value } : ing
     );
     setIngredients(updated);
+  };
+
+  const importFromReddit = async () => {
+    if (!redditUrl.trim()) return;
+    
+    setIsImporting(true);
+    setImportProgress(0);
+    
+    // Start progress animation
+    const progressInterval = setInterval(() => {
+      setImportProgress(prev => {
+        // Asymptotic approach to 90% (never quite reaches 100% until done)
+        const remaining = 90 - prev;
+        const increment = remaining * 0.05;
+        return Math.min(prev + increment, 90);
+      });
+    }, 200);
+    
+    try {
+      const response = await fetch('/api/extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: redditUrl }),
+      });
+
+      const data = await response.json();
+      console.log('Reddit import response:', data);
+
+      if (response.ok) {
+        // Set title if available
+        if (data.title && data.title.trim()) {
+          setNewRecipe(prev => ({ ...prev, name: data.title.trim() }));
+        }
+        
+        // Set description if available
+        if (data.description && data.description.trim()) {
+          setNewRecipe(prev => ({ ...prev, description: data.description.trim() }));
+        }
+        
+        // If we have normalized ingredients, use those; otherwise use raw ingredients
+        if (data.normalized && data.normalized.length > 0) {
+          const importedIngredients = data.normalized.map((ing: any) => ({
+            name: ing.name || '',
+            amount: ing.quantity || '',
+            unit: ing.unit || ''
+          }));
+          setIngredients(importedIngredients.length > 0 ? importedIngredients : [{ name: '', amount: '', unit: '' }]);
+        } else if (data.ingredients && data.ingredients.length > 0) {
+          // Parse raw ingredients as best we can
+          const importedIngredients = data.ingredients.map((ing: string) => ({
+            name: ing,
+            amount: '',
+            unit: ''
+          }));
+          setIngredients(importedIngredients);
+        }
+
+        // Set image if available
+        if (data.image_url) {
+          setNewRecipe(prev => ({ ...prev, imageData: data.image_url }));
+        }
+
+        // Complete progress bar
+        clearInterval(progressInterval);
+        setImportProgress(100);
+        
+        // Small delay to show completion
+        setTimeout(() => {
+          setShowRedditModal(false);
+          setRedditUrl('');
+          setImportProgress(0);
+        }, 500);
+      } else {
+        console.error('Reddit import failed:', data.error);
+        alert('Failed to import from Reddit: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Reddit import error:', error);
+      alert('Failed to import from Reddit. Please check the URL and try again.');
+    } finally {
+      clearInterval(progressInterval);
+      setIsImporting(false);
+      if (importProgress < 100) {
+        setImportProgress(0);
+      }
+    }
   };
 
   const saveRecipe = async () => {
@@ -434,24 +526,22 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                     </div>
                   </div>
                 )}
-                {!selectedImage && editingRecipe && (
-                  (() => {
-                    const recipe = data?.recipes?.find((r: any) => r.id === editingRecipe);
-                    const imageUrl = recipe ? getRecipeImage(recipe) : '';
-                    return imageUrl ? (
-                  <div className="mt-2">
-                    <p className="text-sm text-night-800 mb-2">Current image:</p>
-                    <img 
-                          src={imageUrl} 
-                      alt="Current recipe" 
-                      className="w-24 h-24 object-cover rounded border border-night-600"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                        <p className="text-xs text-night-700 mt-1">Select a new file to replace this image</p>
-                      </div>
-                    ) : null;
-                  })()
+                {!selectedImage && newRecipe.imageData && (
+                  <div className="mt-4">
+                    <p className="text-sm text-night-800 mb-3">
+                      {editingRecipe ? 'Current image:' : 'Imported image:'}
+                    </p>
+                    <div className="bg-night-300 p-4 rounded-lg border border-night-600">
+                      <img 
+                        src={newRecipe.imageData} 
+                        alt={editingRecipe ? "Current recipe" : "Imported recipe"} 
+                        className="w-full max-w-md h-64 object-cover rounded border border-night-500 mx-auto block"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                    <p className="text-xs text-night-700 mt-2 text-center">Select a new file above to replace this image</p>
+                  </div>
                 )}
               </div>
 
@@ -504,6 +594,12 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 Save
               </button>
               <button
+                onClick={() => setShowRedditModal(true)}
+                className="px-6 py-2 bg-tomato text-night rounded hover:bg-tomato-600"
+              >
+                Import from Reddit
+              </button>
+              <button
                 onClick={() => {
                   setShowForm(false);
                   setEditingRecipe(null);
@@ -554,6 +650,67 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                 <button
                   onClick={() => setDeletingRecipe(null)}
                   className="px-6 py-2 bg-night-600 text-saffron font-semibold rounded-lg hover:bg-night-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRedditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-night-400 p-8 rounded-lg border border-saffron w-full max-w-md">
+            <div className="text-center">
+              <div className="text-4xl mb-4">🔗</div>
+              <h3 className="text-xl font-bold text-saffron mb-4">Import from Reddit</h3>
+              <p className="text-night-900 mb-6">
+                Paste a Reddit post URL to automatically extract recipe ingredients and image.
+              </p>
+              
+              <input
+                type="url"
+                value={redditUrl}
+                onChange={(e) => setRedditUrl(e.target.value)}
+                placeholder="https://www.reddit.com/r/cocktails/posts/..."
+                className="w-full px-4 py-3 bg-night-300 border border-night-600 rounded-lg text-saffron placeholder-night-700 focus:outline-none focus:border-moonstone focus:ring-1 focus:ring-moonstone mb-6"
+                disabled={isImporting}
+              />
+              
+              {isImporting && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-night-800">Extracting recipe data...</span>
+                    <span className="text-sm text-moonstone font-medium">{Math.round(importProgress)}%</span>
+                  </div>
+                  <div className="w-full bg-night-600 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-moonstone to-moonstone-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${importProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-night-700 mt-1 text-center">
+                    AI is reading the reddit post...
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={importFromReddit}
+                  disabled={!redditUrl.trim() || isImporting}
+                  className="px-6 py-2 bg-tomato text-night font-semibold rounded-lg hover:bg-tomato-600 transition-colors disabled:bg-night-600 disabled:text-night-800 disabled:cursor-not-allowed"
+                >
+                  {isImporting ? 'Importing...' : 'Import'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRedditModal(false);
+                    setRedditUrl('');
+                  }}
+                  disabled={isImporting}
+                  className="px-6 py-2 bg-night-600 text-saffron font-semibold rounded-lg hover:bg-night-700 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
