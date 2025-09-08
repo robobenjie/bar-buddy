@@ -228,6 +228,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
   const [redditUrl, setRedditUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [filterText, setFilterText] = useState('');
 
   console.log('auth.id', user.id);
   const { data, isLoading } = db.useQuery({
@@ -514,6 +515,11 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
     return <div className="p-8 text-center text-night-800">Loading recipes...</div>;
   }
 
+  // Filter recipes based on search text
+  const filteredRecipes = data?.recipes?.filter((recipe: RecipeWithIngredients) =>
+    recipe.name.toLowerCase().includes(filterText.toLowerCase())
+  ) || [];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -524,6 +530,17 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         >
           Add Recipe
         </button>
+      </div>
+
+      {/* Search filter input */}
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search recipes..."
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          className="w-full px-4 py-3 bg-night-400 border border-night-600 rounded-lg text-saffron placeholder-night-700 focus:outline-none focus:border-moonstone focus:ring-1 focus:ring-moonstone"
+        />
       </div>
 
       {showForm && (
@@ -757,8 +774,14 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         </div>
       )}
 
-      <div className="grid gap-6 grid-cols-3">
-        {data?.recipes?.map((recipe: RecipeWithIngredients) => (
+      {filteredRecipes.length === 0 && filterText.trim() !== '' ? (
+        <div className="bg-night-400 border border-night-600 rounded-lg p-8 text-center">
+          <p className="text-night-800 text-lg">No recipes match your search for "{filterText}"</p>
+          <p className="text-night-900 text-sm mt-2">Try a different search term or add a new recipe.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6 grid-cols-3">
+          {filteredRecipes.map((recipe: RecipeWithIngredients) => (
           <div key={recipe.id} className="bg-night-400 border border-night-600 rounded-lg overflow-hidden cursor-pointer hover:bg-night-500 hover:border-saffron transition-colors"
                onClick={() => onSelectRecipe(recipe.id)}>
             {(() => {
@@ -803,7 +826,8 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1384,6 +1408,7 @@ function MenusView({ onSelectMenu }: {
   const [newMenu, setNewMenu] = useState({ name: '', description: '' });
   const [selectedRecipes, setSelectedRecipes] = useState<string[]>([]);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [recipeFilterText, setRecipeFilterText] = useState('');
 
   const { data: menusData, isLoading: menusLoading } = db.useQuery({
     menus: {
@@ -1449,6 +1474,7 @@ function MenusView({ onSelectMenu }: {
 
     setNewMenu({ name: '', description: '' });
     setSelectedRecipes([]);
+    setRecipeFilterText('');
     setShowForm(false);
   };
 
@@ -1501,6 +1527,11 @@ function MenusView({ onSelectMenu }: {
     return <div className="p-8 text-center text-gray-400">Loading menus...</div>;
   }
 
+  // Filter recipes for menu creation based on search text
+  const filteredMenuRecipes = recipesData?.recipes?.filter((recipe: RecipeWithIngredients) =>
+    recipe.name.toLowerCase().includes(recipeFilterText.toLowerCase())
+  ) || [];
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1536,8 +1567,26 @@ function MenusView({ onSelectMenu }: {
             </div>
 
             <h4 className="text-lg font-semibold text-white mb-4">Select Recipes</h4>
-            <div className="grid gap-3 md:grid-cols-2 mb-6">
-              {recipesData?.recipes?.map((recipe: RecipeWithIngredients) => (
+            
+            {/* Recipe search filter */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search recipes..."
+                value={recipeFilterText}
+                onChange={(e) => setRecipeFilterText(e.target.value)}
+                className="w-full px-4 py-2 bg-night-300 border border-night-600 rounded text-saffron placeholder-night-700 focus:outline-none focus:border-moonstone focus:ring-1 focus:ring-moonstone"
+              />
+            </div>
+            
+            {filteredMenuRecipes.length === 0 && recipeFilterText.trim() !== '' ? (
+              <div className="bg-night-600 border border-night-700 rounded-lg p-6 text-center mb-6">
+                <p className="text-gray-400 text-sm">No recipes match your search for "{recipeFilterText}"</p>
+                <p className="text-gray-500 text-xs mt-1">Try a different search term.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 mb-6">
+                {filteredMenuRecipes.map((recipe: RecipeWithIngredients) => (
                 <div
                   key={recipe.id}
                   onClick={() => toggleRecipe(recipe.id)}
@@ -1563,8 +1612,9 @@ function MenusView({ onSelectMenu }: {
                     <p className="text-gray-400 text-sm mt-1">{recipe.description}</p>
                   )}
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex gap-4">
               <button
@@ -1575,7 +1625,10 @@ function MenusView({ onSelectMenu }: {
                 Create Menu
               </button>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setRecipeFilterText('');
+                }}
                 className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
               >
                 Cancel
