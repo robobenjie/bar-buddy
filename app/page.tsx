@@ -142,6 +142,13 @@ function Navigation({ currentView, setCurrentView }: {
   currentView: string; 
   setCurrentView: (view: string) => void; 
 }) {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const handleLogout = () => {
+    db.auth.signOut();
+    setShowLogoutModal(false);
+  };
+
   return (
     <nav className="bg-night-400 border-b border-saffron">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -167,7 +174,7 @@ function Navigation({ currentView, setCurrentView }: {
               Menus
             </button>
             <button
-              onClick={() => db.auth.signOut()}
+              onClick={() => setShowLogoutModal(true)}
               className="px-3 py-2 rounded-md text-sm font-medium text-night-800 hover:bg-night-600 hover:text-saffron"
             >
               Sign Out
@@ -175,6 +182,36 @@ function Navigation({ currentView, setCurrentView }: {
           </div>
         </div>
       </div>
+      
+      {/* Logout confirmation modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-night-400 p-8 rounded-lg border border-saffron w-full max-w-md">
+            <div className="text-center">
+              <div className="text-4xl mb-4">👋</div>
+              <h3 className="text-xl font-bold text-saffron mb-4">Sign Out</h3>
+              <p className="text-night-900 mb-6">
+                Are you sure you want to sign out of Bar Buddy?
+              </p>
+              
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={handleLogout}
+                  className="px-6 py-2 bg-tomato text-night font-semibold rounded-lg hover:bg-tomato-600 transition-colors"
+                >
+                  Sign Out
+                </button>
+                <button
+                  onClick={() => setShowLogoutModal(false)}
+                  className="px-6 py-2 bg-night-600 text-saffron font-semibold rounded-lg hover:bg-night-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
@@ -772,13 +809,19 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 }
 
 // Shared component for displaying menu items
-function MenuItemCard({ item, showImage = true }: { 
+function MenuItemCard({ item, showImage = true, onClick }: { 
   item: any; 
   showImage?: boolean;
+  onClick?: () => void;
 }) {
   
   return (
-    <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden flex flex-col h-full">
+    <div 
+      className={`bg-gray-900 border border-saffron rounded-lg overflow-hidden flex flex-col h-full ${
+        onClick ? 'cursor-pointer hover:border-moonstone hover:bg-gray-800 transition-colors' : ''
+      }`}
+      onClick={onClick}
+    >
       {showImage && (() => {
         const imageUrl = getRecipeImage(item.recipe);
         return imageUrl ? (
@@ -892,8 +935,9 @@ function formatDisplayFraction(amount: string): React.JSX.Element {
   return <span>{amount}</span>;
 }
 
-function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: { 
-  selectedRecipeId: string | null; 
+function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: { 
+  selectedRecipeId: string | null;
+  selectedMenuId: string | null;
   onBackToRecipes: () => void; 
 }) {
   const user = db.useUser();
@@ -946,7 +990,7 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
           }}
           className="px-4 py-2 bg-night-600 text-saffron rounded-lg hover:bg-night-700"
         >
-          Back to Recipes
+          {selectedMenuId ? 'Back to Menu' : 'Back to Recipes'}
         </button>
       </div>
 
@@ -1172,10 +1216,171 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
   );
 }
 
-function MenusView() {
+function IndividualMenuView({ menuId, onSelectRecipe, onBackToMenus }: { 
+  menuId: string | null; 
+  onSelectRecipe: (recipeId: string, menuId?: string) => void; 
+  onBackToMenus: () => void; 
+}) {
+  const user = db.useUser();
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [showCopyToast, setShowCopyToast] = useState(false);
+
+  const { data: menusData, isLoading: menusLoading } = db.useQuery({
+    menus: {
+      $: { 
+        where: { 'owner.id': user.id },
+        order: { createdAt: 'desc' }
+      },
+      items: {
+        $: { order: { order: 'asc' } },
+        recipe: {
+          ingredients: {
+            $: { order: { order: 'asc' } }
+          }
+        }
+      }
+    },
+  });
+
+  const generateQR = async (menu: MenuWithItems) => {
+    const menuUrl = `${window.location.origin}/menu/${menu.id}`;
+    const qrCodeDataUrl = await QRCode.toDataURL(menuUrl, {
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF',
+      },
+      margin: 2,
+      width: 256,
+    });
+    setQrCodeUrl(qrCodeDataUrl);
+  };
+
+  const copyToClipboard = async (menu: MenuWithItems) => {
+    const menuUrl = `${window.location.origin}/menu/${menu.id}`;
+    try {
+      await navigator.clipboard.writeText(menuUrl);
+      setShowCopyToast(true);
+      setTimeout(() => setShowCopyToast(false), 3000); // Hide toast after 3 seconds
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = menuUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setShowCopyToast(true);
+        setTimeout(() => setShowCopyToast(false), 3000);
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  if (menusLoading) {
+    return <div className="p-8 text-center text-gray-400">Loading menu...</div>;
+  }
+
+  const menu = menusData?.menus?.find((m: MenuWithItems) => m.id === menuId);
+  
+  // Auto-generate QR code when menu loads
+  useEffect(() => {
+    if (menu) {
+      generateQR(menu);
+    }
+  }, [menu]);
+  
+  if (!menu) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-night-400 border border-saffron rounded-lg p-8 text-center">
+          <p className="text-night-800 text-lg">Menu not found.</p>
+          <button
+            onClick={onBackToMenus}
+            className="mt-4 px-4 py-2 bg-night-600 text-saffron rounded-lg hover:bg-night-700"
+          >
+            Back to Menus
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-3xl font-bold text-white">Menu: {menu.name}</h2>
+        <button
+          onClick={onBackToMenus}
+          className="px-4 py-2 bg-night-600 text-saffron rounded-lg hover:bg-night-700"
+        >
+          Back to Menus
+        </button>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-6">
+          {menu.description && (
+            <p className="text-gray-400 text-lg">{menu.description}</p>
+          )}
+          
+          <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 gap-4">
+            {menu.items?.map((item: any) => (
+              <MenuItemCard 
+                key={item.id} 
+                item={item} 
+                showImage={true}
+                onClick={() => onSelectRecipe(item.recipe.id, menu.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-night-400 border border-saffron rounded-lg p-6 h-fit">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-saffron mb-4">QR Code for Guests</h3>
+            <div className="bg-white p-4 rounded-lg inline-block mb-4">
+              <img 
+                src={qrCodeUrl || menu.qrCode} 
+                alt="Menu QR Code" 
+                className="w-48 h-48"
+              />
+            </div>
+            <div className="bg-night-600 p-3 rounded text-center">
+              <p className="text-moonstone text-sm break-all mb-2">
+                {`${window.location.origin}/menu/${menu.id}`}
+              </p>
+              <button
+                onClick={() => copyToClipboard(menu)}
+                className="text-tomato hover:text-tomato-600 text-sm underline"
+              >
+                copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toast notification */}
+      {showCopyToast && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="bg-night-600 border border-saffron text-saffron px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-right">
+            <span className="text-lg">✅</span>
+            <span className="text-sm font-medium">Menu link copied to clipboard!</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenusView({ onSelectMenu }: { 
+  onSelectMenu?: (menuId: string) => void;
+}) {
   const user = db.useUser();
   const [showForm, setShowForm] = useState(false);
-  const [showMenuView, setShowMenuView] = useState<string | null>(null);
   const [newMenu, setNewMenu] = useState({ name: '', description: '' });
   const [selectedRecipes, setSelectedRecipes] = useState<string[]>([]);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
@@ -1296,65 +1501,6 @@ function MenusView() {
     return <div className="p-8 text-center text-gray-400">Loading menus...</div>;
   }
 
-  if (showMenuView) {
-    const menu = menusData?.menus?.find((m: MenuWithItems) => m.id === showMenuView);
-    
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-white">Menu: {menu?.name}</h2>
-          <button
-            onClick={() => setShowMenuView(null)}
-            className="px-4 py-2 bg-night-600 text-saffron rounded-lg hover:bg-night-700"
-          >
-            Back to Menus
-          </button>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            {menu?.description && (
-              <p className="text-gray-400 text-lg">{menu.description}</p>
-            )}
-            
-            <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 gap-4">
-              {menu?.items?.map((item: any) => (
-                <MenuItemCard key={item.id} item={item} showImage={true} />
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-night-400 border border-saffron rounded-lg p-6 h-fit">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-saffron mb-4">QR Code for Guests</h3>
-              <div className="bg-white p-4 rounded-lg inline-block mb-4">
-                <img 
-                  src={qrCodeUrl || menu?.qrCode} 
-                  alt="Menu QR Code" 
-                  className="w-48 h-48"
-                />
-              </div>
-              <p className="text-night-800 text-sm mb-4">
-                Guests can scan this QR code to view your menu
-              </p>
-              <div className="bg-night-600 p-3 rounded text-center mb-4">
-                <p className="text-night-900 text-xs mb-1">Or share this link:</p>
-                <p className="text-moonstone text-sm break-all">
-                  {`${window.location.origin}/menu/${menu?.id}`}
-                </p>
-              </div>
-              <button
-                onClick={() => menu && generateNewQR(menu)}
-                className="px-4 py-2 bg-moonstone text-night rounded-lg hover:bg-moonstone-600"
-              >
-                Refresh QR Code
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1473,7 +1619,7 @@ function MenusView() {
             </div>
 
             <button
-              onClick={() => setShowMenuView(menu.id)}
+              onClick={() => onSelectMenu && onSelectMenu(menu.id)}
               className="w-full px-4 py-2 bg-moonstone text-night rounded hover:bg-moonstone-600"
             >
               View & Share
@@ -1494,6 +1640,7 @@ function MenusView() {
 function Main() {
   const [currentView, setCurrentView] = useState('recipes');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
 
   // Initialize view from URL hash
   useEffect(() => {
@@ -1502,15 +1649,31 @@ function Main() {
       if (hash === 'menus') {
         setCurrentView('menus');
         setSelectedRecipeId(null);
+        setSelectedMenuId(null);
+      } else if (hash.startsWith('menus/')) {
+        const parts = hash.split('/');
+        if (parts.length === 2 && parts[1]) {
+          // menus/menuId
+          setCurrentView('menu-view');
+          setSelectedMenuId(parts[1]);
+          setSelectedRecipeId(null);
+        } else if (parts.length === 4 && parts[2] === 'make' && parts[3]) {
+          // menus/menuId/make/recipeId
+          setCurrentView('make');
+          setSelectedMenuId(parts[1]);
+          setSelectedRecipeId(parts[3]);
+        }
       } else if (hash.startsWith('make/')) {
         const recipeId = hash.split('/')[1];
         if (recipeId) {
           setCurrentView('make');
           setSelectedRecipeId(recipeId);
+          setSelectedMenuId(null);
         }
       } else {
         setCurrentView('recipes');
         setSelectedRecipeId(null);
+        setSelectedMenuId(null);
       }
     };
 
@@ -1525,16 +1688,44 @@ function Main() {
     };
   }, []);
 
-  const handleSelectRecipe = (recipeId: string) => {
+  const handleSelectRecipe = (recipeId: string, menuId?: string) => {
     setSelectedRecipeId(recipeId);
     setCurrentView('make');
-    window.location.hash = `make/${recipeId}`;
+    if (menuId) {
+      setSelectedMenuId(menuId);
+      window.location.hash = `menus/${menuId}/make/${recipeId}`;
+    } else {
+      setSelectedMenuId(null);
+      window.location.hash = `make/${recipeId}`;
+    }
   };
 
   const handleBackToRecipes = () => {
+    if (selectedMenuId) {
+      // Coming from menu view, go back to menu view
+      setSelectedRecipeId(null);
+      setCurrentView('menu-view');
+      window.location.hash = `menus/${selectedMenuId}`;
+    } else {
+      // Coming from recipes, go back to recipes
+      setSelectedRecipeId(null);
+      setCurrentView('recipes');
+      window.location.hash = '';
+    }
+  };
+
+  const handleSelectMenu = (menuId: string) => {
+    setSelectedMenuId(menuId);
+    setCurrentView('menu-view');
     setSelectedRecipeId(null);
-    setCurrentView('recipes');
-    window.location.hash = '';
+    window.location.hash = `menus/${menuId}`;
+  };
+
+  const handleBackToMenus = () => {
+    setSelectedMenuId(null);
+    setSelectedRecipeId(null);
+    setCurrentView('menus');
+    window.location.hash = 'menus';
   };
 
   return (
@@ -1542,8 +1733,9 @@ function Main() {
       <Navigation currentView={currentView} setCurrentView={setCurrentView} />
       
       {currentView === 'recipes' && <RecipesView onSelectRecipe={handleSelectRecipe} />}
-      {currentView === 'make' && <MakeDrinkView selectedRecipeId={selectedRecipeId} onBackToRecipes={handleBackToRecipes} />}
-      {currentView === 'menus' && <MenusView />}
+      {currentView === 'make' && <MakeDrinkView selectedRecipeId={selectedRecipeId} selectedMenuId={selectedMenuId} onBackToRecipes={handleBackToRecipes} />}
+      {currentView === 'menus' && <MenusView onSelectMenu={handleSelectMenu} />}
+      {currentView === 'menu-view' && <IndividualMenuView menuId={selectedMenuId} onSelectRecipe={handleSelectRecipe} onBackToMenus={handleBackToMenus} />}
     </div>
   );
 }
