@@ -13,7 +13,7 @@ function MenuItemCard({ item }: { item: any }) {
   };
 
   return (
-    <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden">
+    <div className="bg-gray-900 border border-saffron rounded-lg overflow-hidden flex flex-col h-full">
       {(() => {
         const imageUrl = getRecipeImage(item.recipe);
         return imageUrl ? (
@@ -28,14 +28,17 @@ function MenuItemCard({ item }: { item: any }) {
           </div>
         ) : null;
       })()}
-      <div className="p-6 text-center">
-        <h3 className="text-2xl font-semibold text-saffron mb-3">{item.recipe.name}</h3>
-        {item.recipe.description && (
-          <p className="text-night-800 mb-6 text-left">{item.recipe.description}</p>
-        )}
+      <div className="p-3 flex flex-col flex-grow">
+        <h3 className="text-2xl font-semibold text-saffron mb-4 text-center">{item.recipe.name}</h3>
+        
+        <div className="flex-grow flex items-center justify-center">
+          {item.recipe.description && (
+            <p className="text-night-800 text-center">{item.recipe.description}</p>
+          )}
+        </div>
         
         {item.recipe.ingredients && item.recipe.ingredients.length > 0 && (
-          <p className="text-night-900 text-sm italic mt-6">
+          <p className="text-night-900 text-sm italic mt-4 pt-4 border-t border-gray-800 text-center">
             {item.recipe.ingredients.map((ingredient: any) => ingredient.name).join(', ')}
           </p>
         )}
