@@ -32,15 +32,6 @@ function randomHandle() {
   return `${randomAdjective}${randomNoun}${randomSuffix}`;
 }
 
-async function createProfile(userId: string) {
-  await db.transact(
-    db.tx.profiles[userId]
-      .update({
-        handle: randomHandle(),
-      })
-      .link({ user: userId }),
-  );
-}
 
 function Login() {
   const [sentEmail, setSentEmail] = useState('');
@@ -656,7 +647,7 @@ function MenuItemCard({ item, showImage = true }: {
 }
 
 // Helper function to format display fractions with proper styling
-function formatDisplayFraction(amount: string): JSX.Element {
+function formatDisplayFraction(amount: string): React.JSX.Element {
   // Handle mixed numbers like "1 1/2"
   const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/);
   if (mixedMatch) {
@@ -771,8 +762,8 @@ function MakeDrinkView({ selectedRecipeId, onBackToRecipes }: {
     setCompletedIngredients(new Set());
   };
 
-  const isCompleted = currentRecipe?.ingredients?.length > 0 && 
-    completedIngredients.size === currentRecipe?.ingredients?.length;
+  const isCompleted = currentRecipe?.ingredients?.length && currentRecipe.ingredients.length > 0 && 
+    completedIngredients.size === currentRecipe.ingredients.length;
 
   if (recipesLoading) {
     return <div className="p-8 text-center text-night-800">Loading recipes...</div>;
@@ -1121,7 +1112,7 @@ function MenusView() {
       
     } catch (error) {
       console.error('Menu deletion failed:', error);
-      alert('Failed to delete menu: ' + error.message);
+      alert('Failed to delete menu: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -1194,11 +1185,11 @@ function MenusView() {
               <div className="bg-night-600 p-3 rounded text-center mb-4">
                 <p className="text-night-900 text-xs mb-1">Or share this link:</p>
                 <p className="text-moonstone text-sm break-all">
-                  {`${window.location.origin}/menu/${menu.id}`}
+                  {`${window.location.origin}/menu/${menu?.id}`}
                 </p>
               </div>
               <button
-                onClick={() => generateNewQR(menu)}
+                onClick={() => menu && generateNewQR(menu)}
                 className="px-4 py-2 bg-moonstone text-night rounded-lg hover:bg-moonstone-600"
               >
                 Refresh QR Code

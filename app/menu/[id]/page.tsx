@@ -54,7 +54,7 @@ type MenuWithItems = InstaQLEntity<
 >;
 
 // Helper function to format display fractions with proper styling
-function formatDisplayFraction(amount: string): JSX.Element {
+function formatDisplayFraction(amount: string): React.JSX.Element {
   // Handle mixed numbers like "1 1/2"
   const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/);
   if (mixedMatch) {
