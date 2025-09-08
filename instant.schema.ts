@@ -34,6 +34,17 @@ const _schema = i.schema({
       name: i.string().indexed(),
       updatedAt: i.number().indexed(),
     }),
+    redditCache: i.entity({
+      url: i.string().unique().indexed(),
+      title: i.string().optional(),
+      description: i.string().optional(),
+      ingredients: i.json(),
+      normalized: i.json().optional(),
+      imageUrl: i.string().optional(),
+      source: i.string(),
+      extractedFrom: i.string().optional(),
+      createdAt: i.number().indexed(),
+    }),
   },
   links: {
     ingredientsRecipe: {
