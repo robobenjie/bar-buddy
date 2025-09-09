@@ -33,15 +33,6 @@ const getRecipeImage = (recipe: any) => {
   return '';
 };
 
-function randomHandle() {
-  const adjectives = ['Mixologist', 'Bartender', 'Chef', 'Master', 'Expert', 'Pro'];
-  const nouns = ['Cocktail', 'Martini', 'Whiskey', 'Gin', 'Rum', 'Vodka'];
-  const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-  const randomSuffix = Math.floor(Math.random() * 9000) + 1000;
-  return `${randomAdjective}${randomNoun}${randomSuffix}`;
-}
-
 
 function Login() {
   const [sentEmail, setSentEmail] = useState('');
@@ -80,11 +71,24 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
         <p className="text-night-800 mb-8">Your personal cocktail companion</p>
       </div>
       
+      <div className="bg-night-400 p-8 rounded-lg border border-saffron mb-6">
+        <h3 className="text-lg font-semibold text-saffron mb-4">What does it do?</h3>
+        <ul className="space-y-2 text-night-900 text-sm">
+          <li className="flex items-start">
+            Input recipes (or import from reddit posts)
+          </li>
+          <li className="flex items-start">
+            Easy calculate double/triple recipes & convert between oz and ml
+          </li>
+          <li className="flex items-start">
+            Create menus & share with guestsvia QR codes
+          </li>
+        </ul>
+      </div>
+      
       <div className="bg-night-400 p-8 rounded-lg border border-saffron">
         <h2 className="text-xl font-bold text-saffron mb-4">Sign In</h2>
-        <p className="text-night-900 mb-6">
-          Enter your email to get started with Bar Buddy - create, manage, and share your cocktail recipes.
-        </p>
+        <p className="text-night-900 mb-6">I will never share your email or send anything but the magic code.</p>
         <input
           ref={inputRef}
           type="email"
@@ -1056,6 +1060,7 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
   const user = db.useUser();
   const [multiplier, setMultiplier] = useState(1);
   const [completedIngredients, setCompletedIngredients] = useState<Set<string>>(new Set());
+  const [showMetric, setShowMetric] = useState(false);
 
   const { data: recipesData, isLoading: recipesLoading } = db.useQuery({
     recipes: {
@@ -1071,6 +1076,71 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
   });
 
   const currentRecipe = recipesData?.recipes?.find(r => r.id === selectedRecipeId);
+
+  // Check if recipe has oz or ml ingredients to show converter
+  const hasConvertibleUnits = currentRecipe?.ingredients?.some((ingredient: any) => {
+    const unit = ingredient.unit?.toLowerCase() || '';
+    return unit.includes('oz') || unit.includes('ml');
+  }) || false;
+
+  // Convert between oz and ml with proper rounding
+  const convertUnit = (amount: string, unit: string): { amount: string; unit: string } => {
+    const unitLower = unit.toLowerCase();
+    
+    if (!unitLower.includes('oz') && !unitLower.includes('ml')) {
+      return { amount, unit }; // Don't convert non-liquid units
+    }
+
+    // Parse the amount (handle fractions)
+    let numericAmount = 0;
+    const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+    if (mixedMatch) {
+      const whole = parseInt(mixedMatch[1]);
+      const num = parseInt(mixedMatch[2]);
+      const den = parseInt(mixedMatch[3]);
+      numericAmount = whole + (num / den);
+    } else {
+      const fractionMatch = amount.match(/^(\d+)\/(\d+)$/);
+      if (fractionMatch) {
+        const num = parseInt(fractionMatch[1]);
+        const den = parseInt(fractionMatch[2]);
+        numericAmount = num / den;
+      } else {
+        numericAmount = parseFloat(amount) || 0;
+      }
+    }
+
+    if (showMetric && unitLower.includes('oz')) {
+      // Convert oz to ml (1 oz = 29.5735 ml, round to nearest 5ml)
+      const ml = Math.round((numericAmount * 29.5735) / 5) * 5;
+      return { amount: ml.toString(), unit: 'ml' };
+    } else if (!showMetric && unitLower.includes('ml')) {
+      // Convert ml to oz (1 ml = 0.033814 oz, round to nearest 1/4 oz)
+      const oz = numericAmount * 0.033814;
+      const quarterOz = Math.round(oz * 4) / 4; // Round to nearest 1/4
+      
+      // Convert back to fraction format
+      if (quarterOz === Math.floor(quarterOz)) {
+        return { amount: quarterOz.toString(), unit: 'oz' };
+      } else {
+        const whole = Math.floor(quarterOz);
+        const remainder = quarterOz - whole;
+        
+        // Convert remainder to fraction
+        if (Math.abs(remainder - 0.25) < 0.01) {
+          return { amount: whole > 0 ? `${whole} 1/4` : '1/4', unit: 'oz' };
+        } else if (Math.abs(remainder - 0.5) < 0.01) {
+          return { amount: whole > 0 ? `${whole} 1/2` : '1/2', unit: 'oz' };
+        } else if (Math.abs(remainder - 0.75) < 0.01) {
+          return { amount: whole > 0 ? `${whole} 3/4` : '3/4', unit: 'oz' };
+        }
+      }
+      
+      return { amount: quarterOz.toString(), unit: 'oz' };
+    }
+
+    return { amount, unit };
+  };
 
   const toggleIngredient = (ingredientId: string) => {
     const newCompleted = new Set(completedIngredients);
@@ -1142,6 +1212,34 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
                 </div>
               </div>
 
+              {/* Unit converter toggle */}
+              {hasConvertibleUnits && (
+                <div className="flex justify-center mb-4">
+                  <div className="bg-night-600 rounded-lg p-1 flex">
+                    <button
+                      onClick={() => setShowMetric(false)}
+                      className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                        !showMetric
+                          ? 'bg-moonstone text-night'
+                          : 'text-night-800 hover:text-saffron'
+                      }`}
+                    >
+                      oz
+                    </button>
+                    <button
+                      onClick={() => setShowMetric(true)}
+                      className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                        showMetric
+                          ? 'bg-moonstone text-night'
+                          : 'text-night-800 hover:text-saffron'
+                      }`}
+                    >
+                      ml
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-lg font-semibold text-night-900">
                   Ingredients ({completedIngredients.size}/{currentRecipe?.ingredients?.length || 0})
@@ -1158,8 +1256,9 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
                 {currentRecipe?.ingredients?.map((ingredient: any) => {
                 const isCompleted = completedIngredients.has(ingredient.id);
                 
-                const scaledAmount = (() => {
+                const { scaledAmount, displayUnit } = (() => {
                   const amount = ingredient.amount.trim();
+                  let scaledAmountValue = '';
                   
                   // Handle mixed numbers like "1 1/2"
                   const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/);
@@ -1169,28 +1268,35 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
                     const den = parseInt(mixedMatch[3]);
                     const decimal = whole + (num / den);
                     const result = decimal * multiplier;
-                    return formatFraction(result);
+                    scaledAmountValue = formatFraction(result);
+                  } else {
+                    // Handle simple fractions like "1/2" or "3/4"
+                    const fractionMatch = amount.match(/^(\d+)\/(\d+)$/);
+                    if (fractionMatch) {
+                      const num = parseInt(fractionMatch[1]);
+                      const den = parseInt(fractionMatch[2]);
+                      const decimal = num / den;
+                      const result = decimal * multiplier;
+                      scaledAmountValue = formatFraction(result);
+                    } else {
+                      // Handle decimal numbers
+                      const num = parseFloat(amount);
+                      if (!isNaN(num)) {
+                        const result = num * multiplier;
+                        scaledAmountValue = formatFraction(result);
+                      } else {
+                        // Return as-is if we can't parse it
+                        scaledAmountValue = amount;
+                      }
+                    }
                   }
                   
-                  // Handle simple fractions like "1/2" or "3/4"
-                  const fractionMatch = amount.match(/^(\d+)\/(\d+)$/);
-                  if (fractionMatch) {
-                    const num = parseInt(fractionMatch[1]);
-                    const den = parseInt(fractionMatch[2]);
-                    const decimal = num / den;
-                    const result = decimal * multiplier;
-                    return formatFraction(result);
-                  }
-                  
-                  // Handle decimal numbers
-                  const num = parseFloat(amount);
-                  if (!isNaN(num)) {
-                    const result = num * multiplier;
-                    return formatFraction(result);
-                  }
-                  
-                  // Return as-is if we can't parse it
-                  return amount;
+                  // Apply unit conversion
+                  const converted = convertUnit(scaledAmountValue, ingredient.unit || '');
+                  return {
+                    scaledAmount: converted.amount,
+                    displayUnit: converted.unit
+                  };
                 })();
                 
                 // Helper function to format decimal back to fraction when appropriate
@@ -1288,7 +1394,7 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
                       </div>
                       <div>
                         <span className={`text-lg ${isCompleted ? 'line-through text-night-800' : 'text-night'}`}>
-                          {formatDisplayFraction(scaledAmount)} {ingredient.unit} {ingredient.name}
+                          {formatDisplayFraction(scaledAmount)} {displayUnit} {ingredient.name}
                         </span>
                       </div>
                     </div>
@@ -1787,6 +1893,97 @@ function Main() {
   const [currentView, setCurrentView] = useState('recipes');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
+  const user = db.useUser();
+
+  // Create default Jungle Bird recipe for new users
+  const createDefaultRecipe = async () => {
+    try {
+      const recipeId = id();
+      const now = Date.now();
+      
+      await db.transact([
+        // Create the recipe
+        db.tx.recipes[recipeId]
+          .update({
+            name: "Jungle Bird",
+            description: "crushable tiki favorite",
+            createdAt: now,
+            updatedAt: now,
+          })
+          .link({ 
+            owner: user.id,
+            image: "4f52e5f8-0d9e-48ca-980e-06b7e280c629" // Pre-uploaded image
+          }),
+        
+        // Add ingredients
+        db.tx.ingredients[id()]
+          .update({
+            name: "Dark rum",
+            amount: "1 1/2",
+            unit: "oz",
+            order: 0,
+          })
+          .link({ recipe: recipeId }),
+          
+        db.tx.ingredients[id()]
+          .update({
+            name: "Pineapple juice",
+            amount: "2",
+            unit: "oz", 
+            order: 1,
+          })
+          .link({ recipe: recipeId }),
+          
+        db.tx.ingredients[id()]
+          .update({
+            name: "Campari",
+            amount: "3/4",
+            unit: "oz",
+            order: 2,
+          })
+          .link({ recipe: recipeId }),
+          
+        db.tx.ingredients[id()]
+          .update({
+            name: "Lime juice",
+            amount: "1/2",
+            unit: "oz",
+            order: 3,
+          })
+          .link({ recipe: recipeId }),
+          
+        db.tx.ingredients[id()]
+          .update({
+            name: "Simple syrup",
+            amount: "1/2",
+            unit: "oz",
+            order: 4,
+          })
+          .link({ recipe: recipeId })
+      ]);
+      
+      console.log('Default Jungle Bird recipe created for new user');
+    } catch (error) {
+      console.error('Failed to create default recipe:', error);
+    }
+  };
+
+  // Check if user needs default recipe (has no recipes)
+  const { data: userRecipes } = db.useQuery({
+    recipes: {
+      $: { 
+        where: { 'owner.id': user.id },
+        limit: 1
+      }
+    }
+  });
+
+  // Create default recipe if user has none
+  useEffect(() => {
+    if (userRecipes !== undefined && userRecipes.recipes?.length === 0) {
+      createDefaultRecipe();
+    }
+  }, [userRecipes, user.id]);
 
   // Initialize view from URL hash
   useEffect(() => {
