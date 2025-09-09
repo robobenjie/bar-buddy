@@ -20,7 +20,17 @@ type MenuWithItems = InstaQLEntity<
 
 // Helper function to get recipe image data
 const getRecipeImage = (recipe: any) => {
-  return recipe.imageData || '';
+  if (!recipe) return '';
+  
+  // New approach: use linked file URL
+  if (recipe.image?.url) {
+    return recipe.image.url;
+  }
+  // Fallback for existing base64 data during migration
+  if (recipe.imageData) {
+    return recipe.imageData;
+  }
+  return '';
 };
 
 function randomHandle() {
@@ -239,13 +249,14 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
       },
       ingredients: {
         $: { order: { order: 'asc' } }
-      }
+      },
+      image: {}
     }
   });
 
 
-  // Helper function to compress and resize images to base64 format
-  const compressImageToBase64 = (file: File, size = 600, quality = 0.8): Promise<string> => {
+  // Helper function to compress and resize images for upload
+  const compressImageFile = (file: File, size = 600, quality = 0.8): Promise<File> => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
@@ -273,9 +284,16 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
           0, 0, size, size               // Destination (scale to target size)
         );
         
-        // Convert to base64
-        const base64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(base64);
+        // Convert canvas to blob then to File
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          }
+        }, 'image/jpeg', quality);
       };
       
       img.src = URL.createObjectURL(file);
@@ -354,7 +372,7 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
           setIngredients(importedIngredients);
         }
 
-        // Set image if available
+        // Set image URL for preview - will be downloaded and uploaded on save
         if (data.image_url) {
           setNewRecipe(prev => ({ ...prev, imageData: data.image_url }));
         }
@@ -390,54 +408,104 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
     const recipeId = editingRecipe || id();
     const now = Date.now();
-    let imageData = newRecipe.imageData;
+    let uploadedFileId: string | null = null;
 
-    // Upload image if a new file was selected
+    // Handle image upload/processing
     if (selectedImage) {
+      // New file selected for upload
       try {
         console.log('Original file size:', (selectedImage.size / 1024 / 1024).toFixed(2), 'MB');
         
-        // Compress the image and convert to base64
-        imageData = await compressImageToBase64(selectedImage);
-        console.log('Converted to base64, length:', imageData.length);
+        // Compress the image
+        const compressedFile = await compressImageFile(selectedImage);
+        console.log('Compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+        
+        // Upload to InstantDB storage
+        const filePath = `recipes/${recipeId}/${Date.now()}-${compressedFile.name}`;
+        const uploadResult = await db.storage.uploadFile(filePath, compressedFile);
+        
+        if (uploadResult.data) {
+          uploadedFileId = uploadResult.data.id;
+          console.log('File uploaded successfully:', uploadResult.data);
+        } else {
+          throw new Error('Failed to upload file');
+        }
       } catch (error) {
-        console.error('Failed to process image:', error);
-        alert('Failed to process image. Please try again.');
+        console.error('Failed to upload image:', error);
+        alert('Failed to upload image. Please try again.');
         return;
+      }
+    } else if (newRecipe.imageData && newRecipe.imageData.startsWith('http')) {
+      // URL from Reddit import - download and upload
+      try {
+        console.log('Downloading image from URL:', newRecipe.imageData);
+        
+        const response = await fetch(newRecipe.imageData);
+        if (!response.ok) throw new Error('Failed to download image');
+        
+        const blob = await response.blob();
+        const file = new File([blob], 'reddit-image.jpg', { type: 'image/jpeg' });
+        
+        // Compress the downloaded image
+        const compressedFile = await compressImageFile(file);
+        console.log('Downloaded and compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+        
+        // Upload to InstantDB storage
+        const filePath = `recipes/${recipeId}/${Date.now()}-reddit-image.jpg`;
+        const uploadResult = await db.storage.uploadFile(filePath, compressedFile);
+        
+        if (uploadResult.data) {
+          uploadedFileId = uploadResult.data.id;
+          console.log('Reddit image uploaded successfully:', uploadResult.data);
+        } else {
+          throw new Error('Failed to upload Reddit image');
+        }
+      } catch (error) {
+        console.error('Failed to download/upload Reddit image:', error);
+        console.log('Continuing without image...');
+        // Don't fail the whole save if image download fails
       }
     }
 
     const transactions = [];
-    
-    console.log('Final imageData before saving to database:', { imageDataLength: imageData.length });
     
     if (editingRecipe) {
       // For editing, just update the recipe without changing links
       const updateData = {
         name: newRecipe.name,
         description: newRecipe.description,
-        imageData: imageData,
         updatedAt: now,
       };
       console.log('Updating existing recipe with data:', updateData);
       transactions.push(
         db.tx.recipes[recipeId].update(updateData)
       );
+      
+      // Link new image if uploaded
+      if (uploadedFileId) {
+        transactions.push(
+          db.tx.recipes[recipeId].link({ image: uploadedFileId })
+        );
+      }
     } else {
       // For creating, update and link to owner
       const createData = {
         name: newRecipe.name,
         description: newRecipe.description,
-        imageData: imageData,
         createdAt: now,
         updatedAt: now,
       };
       console.log('Creating new recipe with data:', createData);
-      transactions.push(
-        db.tx.recipes[recipeId]
-          .update(createData)
-          .link({ owner: user.id })
-      );
+      let recipeTransaction = db.tx.recipes[recipeId]
+        .update(createData)
+        .link({ owner: user.id });
+      
+      // Link image if uploaded
+      if (uploadedFileId) {
+        recipeTransaction = recipeTransaction.link({ image: uploadedFileId });
+      }
+      
+      transactions.push(recipeTransaction);
     }
 
     // If editing, delete existing ingredients first
@@ -499,7 +567,8 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
 
   const startEditRecipe = (recipe: RecipeWithIngredients) => {
     setEditingRecipe(recipe.id);
-    setNewRecipe({ name: recipe.name, description: recipe.description || '', imageData: recipe.imageData || '' });
+    // For editing, we don't pre-populate imageData since we'll use the linked image
+    setNewRecipe({ name: recipe.name, description: recipe.description || '', imageData: '' });
     setSelectedImage(null); // Reset file selection when editing
     setIngredients(
       recipe.ingredients?.map((ing: any) => ({
@@ -580,23 +649,31 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
                     </div>
                   </div>
                 )}
-                {!selectedImage && newRecipe.imageData && (
-                  <div className="mt-4">
-                    <p className="text-sm text-night-800 mb-3">
-                      {editingRecipe ? 'Current image:' : 'Imported image:'}
-                    </p>
-                    <div className="bg-night-300 p-4 rounded-lg border border-night-600">
-                      <img 
-                        src={newRecipe.imageData} 
-                        alt={editingRecipe ? "Current recipe" : "Imported recipe"} 
-                        className="w-full max-w-md h-64 object-cover rounded border border-night-500 mx-auto block"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
-                    <p className="text-xs text-night-700 mt-2 text-center">Select a new file above to replace this image</p>
-                  </div>
-                )}
+                {!selectedImage && (() => {
+                  const currentRecipe = editingRecipe ? data?.recipes?.find(r => r.id === editingRecipe) : null;
+                  const imageUrl = getRecipeImage(currentRecipe) || newRecipe.imageData;
+                  
+                  if (imageUrl) {
+                    return (
+                      <div className="mt-4">
+                        <p className="text-sm text-night-800 mb-3">
+                          {editingRecipe ? 'Current image:' : 'Imported image:'}
+                        </p>
+                        <div className="bg-night-300 p-4 rounded-lg border border-night-600">
+                          <img 
+                            src={imageUrl} 
+                            alt={editingRecipe ? "Current recipe" : "Imported recipe"} 
+                            className="w-full max-w-md h-64 object-cover rounded border border-night-500 mx-auto block"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        </div>
+                        <p className="text-xs text-night-700 mt-2 text-center">Select a new file above to replace this image</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               <h4 className="text-lg font-semibold text-saffron mt-6 mb-2">Ingredients</h4>
@@ -976,7 +1053,8 @@ function MakeDrinkView({ selectedRecipeId, selectedMenuId, onBackToRecipes }: {
       },
       ingredients: {
         $: { order: { order: 'asc' } }
-      }
+      },
+      image: {}
     }
   });
 
@@ -1260,7 +1338,8 @@ function IndividualMenuView({ menuId, onSelectRecipe, onBackToMenus }: {
         recipe: {
           ingredients: {
             $: { order: { order: 'asc' } }
-          }
+          },
+          image: {}
         }
       }
     },
@@ -1421,7 +1500,8 @@ function MenusView({ onSelectMenu }: {
         recipe: {
           ingredients: {
             $: { order: { order: 'asc' } }
-          }
+          },
+          image: {}
         }
       }
     },
@@ -1435,7 +1515,8 @@ function MenusView({ onSelectMenu }: {
       },
       ingredients: {
         $: { order: { order: 'asc' } }
-      }
+      },
+      image: {}
     },
   });
 

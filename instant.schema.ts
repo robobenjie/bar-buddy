@@ -30,7 +30,6 @@ const _schema = i.schema({
     recipes: i.entity({
       createdAt: i.number().indexed(),
       description: i.string().optional(),
-      imageData: i.string().optional(),
       name: i.string().indexed(),
       updatedAt: i.number().indexed(),
     }),
@@ -103,6 +102,18 @@ const _schema = i.schema({
       },
       reverse: {
         on: "$users",
+        has: "many",
+        label: "recipes",
+      },
+    },
+    recipesImage: {
+      forward: {
+        on: "recipes",
+        has: "one",
+        label: "image",
+      },
+      reverse: {
+        on: "$files",
         has: "many",
         label: "recipes",
       },
