@@ -1500,10 +1500,6 @@ function IndividualMenuView({ menuId, onSelectRecipe, onBackToMenus }: {
     }
   };
 
-  if (menusLoading) {
-    return <div className="p-8 text-center text-gray-400">Loading menu...</div>;
-  }
-
   const menu = menusData?.menus?.find((m: MenuWithItems) => m.id === menuId);
   
   // Auto-generate QR code when menu loads
@@ -1512,6 +1508,10 @@ function IndividualMenuView({ menuId, onSelectRecipe, onBackToMenus }: {
       generateQR(menu);
     }
   }, [menu]);
+
+  if (menusLoading) {
+    return <div className="p-8 text-center text-gray-400">Loading menu...</div>;
+  }
   
   if (!menu) {
     return (
