@@ -436,14 +436,26 @@ function RecipesView({ onSelectRecipe }: { onSelectRecipe: (recipeId: string) =>
         return;
       }
     } else if (newRecipe.imageData && newRecipe.imageData.startsWith('http')) {
-      // URL from Reddit import - download and upload
+      // URL from Reddit import - download via server and upload
       try {
-        console.log('Downloading image from URL:', newRecipe.imageData);
+        console.log('Downloading image from URL via server:', newRecipe.imageData);
         
-        const response = await fetch(newRecipe.imageData);
-        if (!response.ok) throw new Error('Failed to download image');
+        // Use our server-side endpoint to download the image
+        const response = await fetch('/api/download-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ imageUrl: newRecipe.imageData }),
+        });
         
-        const blob = await response.blob();
+        if (!response.ok) throw new Error('Failed to download image via server');
+        
+        const { dataUrl } = await response.json();
+        
+        // Convert data URL back to File object
+        const base64Response = await fetch(dataUrl);
+        const blob = await base64Response.blob();
         const file = new File([blob], 'reddit-image.jpg', { type: 'image/jpeg' });
         
         // Compress the downloaded image

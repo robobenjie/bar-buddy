@@ -42,6 +42,15 @@ export async function POST(req: NextRequest) {
   try {
     console.log('[Reddit Extract] Starting extraction...');
     
+    // Log request details for debugging mobile issues
+    const userAgent = req.headers.get('user-agent') || 'unknown';
+    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    console.log('[Reddit Extract] Request info:', {
+      userAgent: userAgent.substring(0, 100) + '...', // Truncate for logs
+      clientIP,
+      isMobile: /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)
+    });
+    
     // Check environment variables
     console.log('[Reddit Extract] Environment check:', {
       hasOpenAIKey: !!process.env.OPENAI_API_KEY,
@@ -64,6 +73,12 @@ export async function POST(req: NextRequest) {
 
     const resolved = await resolveFinalUrl(url);
     const normalizedUrl = getNormalizedUrl(resolved);
+    
+    console.log('[Reddit Extract] URL resolution:', {
+      original: url,
+      resolved: resolved,
+      normalized: normalizedUrl
+    });
     
     // Check cache first
     try {
@@ -107,12 +122,22 @@ export async function POST(req: NextRequest) {
     const r = await fetch(apiUrl, {
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "User-Agent": process.env.REDDIT_USER_AGENT || "bar-buddy/1.0 (extractor)"
+        "User-Agent": process.env.REDDIT_USER_AGENT || "bar-buddy/1.0 (extractor)",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9"
       },
       redirect: "follow",
       cache: "no-store"
     });
-    if (!r.ok) return json({ error: `Reddit fetch failed: ${r.status}` }, 502);
+    
+    if (!r.ok) {
+      console.log('[Reddit Extract] Reddit API error:', {
+        status: r.status,
+        statusText: r.statusText,
+        headers: Object.fromEntries(r.headers.entries())
+      });
+      return json({ error: `Reddit fetch failed: ${r.status} ${r.statusText}` }, 502);
+    }
 
     const payload = await r.json();
 
@@ -226,9 +251,23 @@ ${recipeText.slice(0, 30_000)}`;
 // Follow short / mobile links
 async function resolveFinalUrl(u: string): Promise<string> {
   try {
-    const res = await fetch(u, { method: "HEAD", redirect: "follow" });
-    return res.url || u;
-  } catch {
+    // For mobile share URLs (/s/), we need to follow redirects to get the full URL
+    console.log('[URL Resolver] Resolving URL:', u);
+    
+    const res = await fetch(u, { 
+      method: "HEAD", 
+      redirect: "follow",
+      headers: {
+        'User-Agent': process.env.REDDIT_USER_AGENT || 'bar-buddy/1.0 (contact:bmholson@gmail.com)'
+      }
+    });
+    
+    const finalUrl = res.url || u;
+    console.log('[URL Resolver] Final URL:', finalUrl);
+    
+    return finalUrl;
+  } catch (error) {
+    console.log('[URL Resolver] Error resolving URL:', error);
     return u;
   }
 }
@@ -241,8 +280,9 @@ async function getRedditAccessToken(): Promise<string> {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
-      'User-Agent': process.env.REDDIT_USER_AGENT || 'bar-buddy/1.0 (contact:example@email.com)',
+      'User-Agent': process.env.REDDIT_USER_AGENT || 'bar-buddy/1.0 (contact:bmholson@gmail.com)',
       'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
     },
     body: 'grant_type=client_credentials',
   });
